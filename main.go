@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"flag"
-	"time"
 	"log"
 
 	"github.com/mosalut/q2p"
@@ -52,13 +51,6 @@ func main() {
 		log.Fatal(err)
 	}
 	print(0, "conn:", peer.Conn)
-
-	go func () {
-		for {
-			print(0, "xxxxxxxxxxxxxxxxxxxxxx")
-			time.Sleep(time.Second)
-		}
-	}()
 
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)

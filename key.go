@@ -3,22 +3,32 @@ package main
 import (
 	"bufio"
 	"os"
+	"strings"
 	"fmt"
 )
 
 const sign = "dsysb>"
+const commandHelp = `
+	conns: List connection addresses
+	exit: exit
+	quit: exit
+	newaddress: generate a new address
+	help: this doc
+`
 
 func keyEvent() {
 	for {
 		fmt.Printf(sign)
 		reader := bufio.NewReader(os.Stdin)
-		command, _ := reader.ReadString('\n')
+		commandLine, _ := reader.ReadString('\n')
 
-		commandProcess(command[:len(command) - 1])
+		commandProcess(commandLine)
 	}
 }
 
-func commandProcess(command string) {
+func commandProcess(commandLine string) {
+	commandWords := strings.Fields(strings.TrimSpace(commandLine))
+	command := commandWords[0]
 	switch command {
 	case "conns":
 		for k, _ := range seedAddrs {
@@ -29,8 +39,15 @@ func commandProcess(command string) {
 		os.Exit(0)
 	case "quit":
 		os.Exit(0)
-	case "":
+	case "help":
+		fmt.Println(commandHelp)
+	case "newaddress":
+		wallet := newWallet()
+		address := wallet.getAddress()
+		fmt.Println(string(address))
+	case "validateaddress":
+		fmt.Println(validateAddress(commandWords[1]))
 	default:
-		fmt.Println("command:" + command + " not found")
+		fmt.Println(commandHelp)
 	}
 }
