@@ -45,9 +45,12 @@ func setLogFile() error {
 }
 
 func print(level int, v ...any) error {
-	if level == 0 {
+	switch level {
+	case 0:
 		log.SetPrefix("[DEBUG]")
-	} else {
+	case 1:
+		log.SetPrefix("[INFO]")
+	case 2:
 		log.SetPrefix("[ERROR]")
 	}
 

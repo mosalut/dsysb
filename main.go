@@ -1,9 +1,6 @@
 package main
 
 import (
-	"syscall"
-	"os"
-	"os/signal"
 	"flag"
 	"log"
 
@@ -16,6 +13,7 @@ type cmdFlag_T struct {
 	remoteHost string
 	networkID uint16
 	cn int
+	httpPort string
 }
 
 var seedAddrs = make(map[string]bool)
@@ -32,13 +30,11 @@ func init() {
 func main() {
 	log.Println(*cmdFlag)
 
-	go keyEvent()
-
 	if cmdFlag.remoteHost != "" {
 		seedAddrs[cmdFlag.remoteHost] = false
 	}
 
-	peer := q2p.NewPeer(cmdFlag.ip, cmdFlag.port, seedAddrs, cmdFlag.networkID)
+	peer = q2p.NewPeer(cmdFlag.ip, cmdFlag.port, seedAddrs, cmdFlag.networkID, callback)
 	q2p.Set_connection_num(cmdFlag.cn)
 	err := openLogFile()
 	if err != nil {
@@ -52,10 +48,7 @@ func main() {
 	}
 	print(0, "conn:", peer.Conn)
 
-	ch := make(chan os.Signal)
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-	<-ch
-	print(0, "Received signal, shutting down...")
+	runHttpServer(cmdFlag.httpPort)
 }
 
 func readFlags(cmdFlag *cmdFlag_T) {
@@ -63,4 +56,5 @@ func readFlags(cmdFlag *cmdFlag_T) {
 	flag.IntVar(&cmdFlag.port, "port", 10000, "UDP host Port")
 	flag.StringVar(&cmdFlag.remoteHost, "remote_host", "", "remote host address")
 	flag.IntVar(&cmdFlag.cn, "cn", 32, "connection_num")
+	flag.StringVar(&cmdFlag.httpPort, "http_port", "20000", "http run on")
 }
