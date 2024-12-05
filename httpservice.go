@@ -3,12 +3,13 @@ package main
 import (
 	"net/http"
 	"time"
-
 	"log"
 )
 
 func runHttpServer(port string) {
 	http.HandleFunc("/peer", peerHandler)
+	http.HandleFunc("/socket", socketHandler)
+	http.HandleFunc("/blockchain", blockchainHandler)
 
 	server := http.Server {
 		Addr: "0.0.0.0:" + port,
