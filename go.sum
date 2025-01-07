@@ -1,6 +1,6 @@
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/mosalut/q2p v1.0.10 h1:gWrpCgo3pu4pVa2r0vLeCavt90Jxh6ykGjKBIGp6MFs=
-github.com/mosalut/q2p v1.0.10/go.mod h1:+jL7WpBaB5oPnP4LL+sXCXUwcfeIxwo+CSD1b1klr+I=
-github.com/mosalut/q2p v1.0.11 h1:ba4F0jVeiBcdZBCwJEpi5AdnoQgkgjcrN5Z7YDvt2EM=
-github.com/mosalut/q2p v1.0.11/go.mod h1:+jL7WpBaB5oPnP4LL+sXCXUwcfeIxwo+CSD1b1klr+I=
+github.com/mosalut/q2p v1.0.14 h1:N2SR1kCDfF2DMGVrpnwoX2fWUedchwjSU0idcGnONrA=
+github.com/mosalut/q2p v1.0.14/go.mod h1:+jL7WpBaB5oPnP4LL+sXCXUwcfeIxwo+CSD1b1klr+I=
+github.com/mosalut/q2p v1.0.15 h1:mdcjn9hUhrYlHMEeWqqz4HaiUt3GfAonWU6RZ/lrsVo=
+github.com/mosalut/q2p v1.0.15/go.mod h1:+jL7WpBaB5oPnP4LL+sXCXUwcfeIxwo+CSD1b1klr+I=

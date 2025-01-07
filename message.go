@@ -2,7 +2,7 @@ package main
 
 import (
 	"net"
-//	"log"
+	"fmt"
 
 	"github.com/mosalut/q2p"
 )
@@ -14,10 +14,12 @@ func sendMessage(peer *q2p.Peer_T, addr, message string) error {
 	}
 
 	print(0, message, rAddr)
-	err = peer.Transport(rAddr, []byte(message))
+	hash, err := peer.Transport(rAddr, []byte(message))
 	if err != nil {
 		return err
 	}
+
+	fmt.Println(hash, "sent")
 
 	return nil
 }

@@ -10,11 +10,12 @@ import (
 var logFile *os.File
 const logName = "dsysb_log"
 
-func openLogFile() error {
+func openLogFile(host string) error {
 	var err error
-	logFile, err = os.OpenFile(logName, os.O_WRONLY, 0644)
+	filename := logName + host
+	logFile, err = os.OpenFile(filename, os.O_WRONLY | os.O_APPEND, 0644)
 	if err != nil {
-		logFile, err = os.Create(logName)
+		logFile, err = os.Create(filename)
 		if err != nil {
 			return err
 		}

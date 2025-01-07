@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"strconv"
 	"log"
 
 	"github.com/mosalut/q2p"
@@ -34,12 +35,17 @@ func main() {
 		seedAddrs[cmdFlag.remoteHost] = false
 	}
 
-	peer = q2p.NewPeer(cmdFlag.ip, cmdFlag.port, seedAddrs, cmdFlag.networkID, callback)
-	q2p.Set_connection_num(cmdFlag.cn)
-	err := openLogFile()
+	err := openLogFile(strconv.Itoa(cmdFlag.port))
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	peer = q2p.NewPeer(cmdFlag.ip, cmdFlag.port, seedAddrs, cmdFlag.networkID)
+	q2p.Set_connection_num(cmdFlag.cn)
+	peer.TimeSendLost = 5
+	peer.Timeout = 16
+	peer.Successed = transportSuccessed
+	peer.Failed = transportFailed
 
 	print(0, "peer:", peer)
 	err = peer.Run()

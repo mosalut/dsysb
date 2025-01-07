@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"net/http"
 	"fmt"
 	"log"
@@ -10,8 +11,12 @@ import (
 
 var peer *q2p.Peer_T
 
-func callback(data []byte) {
-	fmt.Println(data)
+func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, data []byte) {
+	fmt.Println(key, data)
+}
+
+func transportFailed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, syns []uint32) {
+	fmt.Println(key, syns)
 }
 
 func peerHandler(w http.ResponseWriter, req *http.Request) {
