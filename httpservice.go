@@ -10,6 +10,7 @@ func runHttpServer(port string) {
 	http.HandleFunc("/peer", peerHandler)
 	http.HandleFunc("/socket", socketHandler)
 	http.HandleFunc("/blockchain", blockchainHandler)
+	http.HandleFunc("/block", blockHandler)
 
 	server := http.Server {
 		Addr: "0.0.0.0:" + port,
@@ -17,7 +18,7 @@ func runHttpServer(port string) {
 		WriteTimeout: 10 * time.Second,
 	}
 
-	print(0, "HTTP server is running on 0.0.0.0:" + port)
+	print(log_info, "HTTP server is running on 0.0.0.0:" + port)
 
 	log.Fatal(server.ListenAndServe())
 }

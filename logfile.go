@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+	"runtime"
 	"strconv"
 	"os"
 	"time"
@@ -9,6 +11,13 @@ import (
 
 var logFile *os.File
 const logName = "dsysb_log"
+
+const (
+	log_debug = iota
+	log_info
+	log_warning
+	log_error
+)
 
 func openLogFile(host string) error {
 	var err error
@@ -45,29 +54,34 @@ func setLogFile() error {
 	return nil
 }
 
-func print(level int, v ...any) error {
+func print(level int, v ...any) {
 	switch level {
-	case 0:
+	case log_debug:
 		log.SetPrefix("[DEBUG]")
-	case 1:
+	case log_info:
 		log.SetPrefix("[INFO]")
-	case 2:
+	case log_warning:
+		log.SetPrefix("[WARNING]")
+	case log_error:
 		log.SetPrefix("[ERROR]")
 	}
 
-	info, err := logFile.Stat()
-	if err != nil {
-		return err
-	}
-
-	if info.Size() >= 4194304 { // 4 * 1024 * 1024
-		err := setLogFile()
+	if cmdFlag.logFile {
+		info, err := logFile.Stat()
 		if err != nil {
-			return err
+			log.Println(err)
+		}
+
+		if info.Size() >= 4194304 { // 4 * 1024 * 1024
+			err := setLogFile()
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}
 
-	log.Println(v)
-
-	return nil
+	_, path, line, _ := runtime.Caller(1)
+	names := strings.Split(path, `/`)
+	filename := names[len(names) - 1]
+	log.Println(filename, "line:", line, v)
 }

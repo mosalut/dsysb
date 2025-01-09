@@ -15,13 +15,13 @@ type cmdFlag_T struct {
 	networkID uint16
 	cn int
 	httpPort string
+	logFile bool
 }
 
 var seedAddrs = make(map[string]bool)
 var cmdFlag *cmdFlag_T
 
 func init() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	cmdFlag = &cmdFlag_T{}
 	readFlags(cmdFlag)
 	flag.Parse()
@@ -35,9 +35,11 @@ func main() {
 		seedAddrs[cmdFlag.remoteHost] = false
 	}
 
-	err := openLogFile(strconv.Itoa(cmdFlag.port))
-	if err != nil {
-		log.Fatal(err)
+	if cmdFlag.logFile {
+		err := openLogFile(strconv.Itoa(cmdFlag.port))
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	peer = q2p.NewPeer(cmdFlag.ip, cmdFlag.port, seedAddrs, cmdFlag.networkID)
@@ -47,20 +49,22 @@ func main() {
 	peer.Successed = transportSuccessed
 	peer.Failed = transportFailed
 
-	print(0, "peer:", peer)
-	err = peer.Run()
+	print(log_debug, "peer:", peer)
+	err := peer.Run()
 	if err != nil {
 		log.Fatal(err)
 	}
-	print(0, "conn:", peer.Conn)
+	print(log_debug, "conn:", peer.Conn)
 
+	initDB()
 	runHttpServer(cmdFlag.httpPort)
 }
 
 func readFlags(cmdFlag *cmdFlag_T) {
-	flag.StringVar(&cmdFlag.ip, "ip", "0.0.0.0", "UDP host IP")
-	flag.IntVar(&cmdFlag.port, "port", 10000, "UDP host Port")
-	flag.StringVar(&cmdFlag.remoteHost, "remote_host", "", "remote host address")
-	flag.IntVar(&cmdFlag.cn, "cn", 32, "connection_num")
-	flag.StringVar(&cmdFlag.httpPort, "http_port", "20000", "http run on")
+	flag.StringVar(&cmdFlag.ip, "ip", "0.0.0.0", "The P2P host IP")
+	flag.IntVar(&cmdFlag.port, "port", 10000, "The P2P host Port")
+	flag.StringVar(&cmdFlag.remoteHost, "remote_host", "", "Remote host address")
+	flag.IntVar(&cmdFlag.cn, "cn", 32, "The max p2p connections")
+	flag.StringVar(&cmdFlag.httpPort, "http_port", "20000", "HTTP run on")
+	flag.BoolVar(&cmdFlag.logFile, "log_file", true, "Write log to file")
 }

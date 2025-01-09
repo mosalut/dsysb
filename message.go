@@ -13,7 +13,7 @@ func sendMessage(peer *q2p.Peer_T, addr, message string) error {
 		return err
 	}
 
-	print(0, message, rAddr)
+	print(log_debug, message, rAddr)
 	hash, err := peer.Transport(rAddr, []byte(message))
 	if err != nil {
 		return err

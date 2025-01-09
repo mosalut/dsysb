@@ -1,11 +1,12 @@
 package main
 
 import (
-	"crypto/sha256"
-	"fmt"
-	"log"
+//	"crypto/sha256"
+//	"fmt"
+//	"log"
 )
 
+/*
 type script_T struct {
 	creator *account_T
 	byteCode []byte
@@ -24,7 +25,7 @@ func (vm *vm_T)write() {
 
 func (vm *vm_T)read(byteCode []byte) {
 	if len(byteCode) <= 20 {
-		print("byte code length must > 20")
+		print(log_info, "byte code length must > 20")
 		return
 	}
 
@@ -32,3 +33,4 @@ func (vm *vm_T)read(byteCode []byte) {
 	script.byteCode = byteCode
 	script.creator = &account_T {*address_T(byteCode[:16]), 0}
 }
+*/

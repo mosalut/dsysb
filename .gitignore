@@ -23,5 +23,7 @@ go.work.sum
 go.*
 
 dsysb_log*
+*.db
+config
 
 *.dat
