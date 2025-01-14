@@ -8,9 +8,9 @@ import (
 const API_NOT_FOUND = "API not found"
 
 type responseResult_T struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Success bool	`json:"success"`
+	Message string	`json:"message"`
+	Data	[]byte	`json:"data"`
 }
 
 func writeResult(w http.ResponseWriter, result responseResult_T) {

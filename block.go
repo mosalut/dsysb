@@ -33,13 +33,14 @@ var chainDB *leveldb.DB
 var toolDB *leveldb.DB
 
 func initDB() {
+	port := strconv.Itoa(cmdFlag.port)
 	var err error
-	toolDB, err = leveldb.OpenFile("tool.db", nil)
+	toolDB, err = leveldb.OpenFile("tool_" + port + ".db", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	chainDB, err = leveldb.OpenFile("chain.db", nil)
+	chainDB, err = leveldb.OpenFile("chain_" + port + ".db", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -119,7 +120,13 @@ func blockchainHandler(w http.ResponseWriter, req *http.Request) {
 		prevHashBytes, _ := hex.DecodeString(block.Head.PrevHash)
 		block = getBlock(prevHashBytes[32:])
 	}
-	writeResult(w, responseResult_T{true, "ok", blockchain})
+
+	jsonData, err := json.Marshal(blockchain)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	writeResult(w, responseResult_T{true, "ok", jsonData})
 }
 
 func blockHandler(w http.ResponseWriter, req *http.Request) {
@@ -148,5 +155,11 @@ func blockHandler(w http.ResponseWriter, req *http.Request) {
 
 	block := getBlock(buffer)
 
-	writeResult(w, responseResult_T{true, "ok", block})
+	jsonData, err := json.Marshal(block)
+	if err != nil {
+		writeResult(w, responseResult_T{false, err.Error(), nil})
+		return
+	}
+
+	writeResult(w, responseResult_T{true, "ok", jsonData})
 }

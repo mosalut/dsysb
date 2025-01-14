@@ -11,6 +11,8 @@ func runHttpServer(port string) {
 	http.HandleFunc("/socket", socketHandler)
 	http.HandleFunc("/blockchain", blockchainHandler)
 	http.HandleFunc("/block", blockHandler)
+	http.HandleFunc("/sendrawtransaction", sendRawTransaction)
+	http.HandleFunc("/txpool", txPool)
 
 	server := http.Server {
 		Addr: "0.0.0.0:" + port,
