@@ -1,15 +1,22 @@
+// dsysb
+
 package main
 
 import (
 	"math/big"
 	"encoding/json"
-	"encoding/hex"
-//	"crypto/ecdsa"
 	"crypto/elliptic"
 	"io"
 	"net"
 	"net/http"
 	"fmt"
+	"errors"
+)
+
+const (
+	type_coinbase = iota
+	type_create
+	type_transfer
 )
 
 type publicKey_T struct {
@@ -18,26 +25,98 @@ type publicKey_T struct {
 	Y *big.Int `json:"y"`
 }
 
+type signer_T struct {
+	PublicKey *publicKey_T `json:"PublicKey"`
+	Signature [64]byte `json:"signature"`
+}
+
+func (signer *signer_T) String() string {
+	return fmt.Sprintf(
+		"public key:\t%x%x\n" +
+		"signature:\t%x", signer.PublicKey.X.Bytes(), signer.PublicKey.Y.Bytes(), signer.Signature)
+}
+
 type transaction_T struct {
-	Txid []byte `json:"txid"`
-	From string `json:"from"`
-	To string `json:"to"`
-	Script []byte `json:"script"`
-	PublicKey *publicKey_T `json:"public_key"`
-	Signature []byte `json:"signature"`
+	Txid [32]byte `json:"txid"`
+	Type uint8 `json:"type"`
+	Data []byte `json:"data"`
 }
 
-var transactionPool = make([]*transaction_T, 0, 32)
+func decodeRawTransaction(rawTransaction []byte) (*transaction_T, error) {
+	transaction := transaction_T{}
+	err := json.Unmarshal(rawTransaction, &transaction)
+	if err != nil {
+		return nil, err
+	}
 
-func (t transaction_T) String() string {
-	return "txid:\t" + fmt.Sprintf("%x\n", t.Txid) +
-	"from:\t" + t.From + "\n" +
-	"to:\t" + t.To + "\n" +
-	"script:\t" + hex.EncodeToString(t.Script) + "\n" +
-	"signature:\t" + fmt.Sprintf("%x", t.Signature) + "\n"
+	return &transaction, nil
 }
 
-func sendRawTransaction(w http.ResponseWriter, req *http.Request) {
+func transactionValidate(transaction *transaction_T) bool {
+	typ := uint8(transaction.Data[0])
+
+	// TODO
+	switch typ {
+	case type_coinbase:
+		return true
+	case type_create:
+		return true
+	case type_transfer:
+		return true
+	}
+
+	return true
+}
+
+func sendRawTransaction(body io.ReadCloser) error {
+	defer body.Close()
+	bs, err := io.ReadAll(body)
+	if err != nil {
+		return err
+	}
+
+	params := &p2pParams_T{}
+	err = json.Unmarshal(bs, &params)
+	if err != nil {
+		return err
+	}
+	params.Key = p2p_transport_sendrawtransaction_event
+
+	bs, err = json.Marshal(params)
+	if err != nil {
+		return err
+	}
+
+	transaction, err := decodeRawTransaction(params.Data)
+	if err != nil {
+		return err
+	}
+
+	if !transactionValidate(transaction) {
+		return errors.New("transaction valid failed")
+	}
+
+	// TODO  more validations
+	poolMutex.Lock()
+	transactionPool = append(transactionPool, transaction)
+	poolMutex.Unlock()
+
+	for k, _ := range seedAddrs {
+		rAddr, err := net.ResolveUDPAddr("udp", k)
+		if err != nil {
+			print(log_error, err)
+		}
+
+		_, err = peer.Transport(rAddr, bs)
+		if err != nil {
+			print(log_error, err)
+		}
+	}
+
+	return nil
+}
+
+func sendRawTransactionHandler(w http.ResponseWriter, req *http.Request) {
 	cors(w)
 
 	switch req.Method {
@@ -49,71 +128,28 @@ func sendRawTransaction(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(req.Body)
+	err := sendRawTransaction(req.Body)
 	if err != nil {
 		writeResult(w, responseResult_T{false, err.Error(), nil})
 		return
-	}
-
-	params := &p2pParams_T{}
-	err = json.Unmarshal(body, &params)
-	if err != nil {
-		writeResult(w, responseResult_T{false, err.Error(), nil})
-		return
-	}
-	params.Key = p2p_transport_sendrawtransaction_event
-
-	body, err = json.Marshal(params)
-	if err != nil {
-		writeResult(w, responseResult_T{false, err.Error(), nil})
-		return
-	}
-
-	dataStr := hex.EncodeToString(params.Data)
-
-	transaction, err := decodeRawTransaction(dataStr)
-	if err != nil {
-		writeResult(w, responseResult_T{false, err.Error(), nil})
-		return
-	}
-
-	transactionPool = append(transactionPool, transaction)
-	fmt.Println(transaction)
-
-	for k, _ := range seedAddrs {
-		rAddr, err := net.ResolveUDPAddr("udp", k)
-		if err != nil {
-			writeResult(w, responseResult_T{false, err.Error(), nil})
-			return
-		}
-
-		_, err = peer.Transport(rAddr, body)
-		if err != nil {
-			writeResult(w, responseResult_T{false, err.Error(), nil})
-			return
-		}
 	}
 
 	writeResult(w, responseResult_T{true, "ok", nil})
 }
 
-func decodeRawTransaction(s string) (*transaction_T, error) {
-	rawTransaction, err := hex.DecodeString(s)
-	if err != nil {
-		return nil, err
+func poolToCache() *poolCache_T {
+	state := getState()
+	if len(transactionPool) <= 511 {
+		return &poolCache_T {
+			state,
+			transactionPool,
+		}
 	}
 
-	transaction := transaction_T{}
-	err = json.Unmarshal(rawTransaction, &transaction)
-	if err != nil {
-		return nil, err
+	return &poolCache_T {
+		state,
+		transactionPool[:511],
 	}
-
-	return &transaction, nil
-}
-
-func getTransactionPool() []*transaction_T {
-	return transactionPool
 }
 
 func txPool(w http.ResponseWriter, req *http.Request) {

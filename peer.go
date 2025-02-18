@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"fmt"
 	"log"
-	"reflect"
+//	"reflect"
 
 	"github.com/mosalut/q2p"
 )
@@ -49,17 +49,25 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		}
 
 		fmt.Println(rawtransaction)
-		fmt.Println(reflect.TypeOf(transaction.PublicKey))
+	//	fmt.Println(reflect.TypeOf(transaction..PublicKey))
 
-		publicKey := ecdsa.PublicKey{transaction.PublicKey.Curve, transaction.PublicKey.X, transaction.PublicKey.Y}
-		fmt.Println(publicKey)
+		switch transaction.Type {
+		case type_create:
+			ca, err := decodeCreateAsset(transaction.Data)
+			if err != nil {
+				print(log_error, err)
+				return
+			}
+			publicKey := ecdsa.PublicKey{ca.Signer.PublicKey.Curve, ca.Signer.PublicKey.X, ca.Signer.PublicKey.Y}
+			fmt.Println(publicKey)
+			ok := ecdsa.Verify(&publicKey, transaction.Txid[:], big.NewInt(0).SetBytes(ca.Signer.Signature[:32]), big.NewInt(0).SetBytes(ca.Signer.Signature[32:]))
+			if ok {
+				transactionPool = append(transactionPool, &transaction)
+				fmt.Println(transaction)
+			}
+		case type_transfer:
 
-		ok := ecdsa.Verify(&publicKey, transaction.Txid, big.NewInt(0).SetBytes(transaction.Signature[:32]), big.NewInt(0).SetBytes(transaction.Signature[32:]))
-		fmt.Println(ok)
-
-		if ok {
-			transactionPool = append(transactionPool, &transaction)
-			fmt.Println(transaction)
+			// TODO
 		}
 	}
 }

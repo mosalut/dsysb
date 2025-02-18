@@ -1,23 +1,49 @@
-// server
+// dsysb
+
 package main
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"net/http"
-	"log"
+	"fmt"
 
 	"github.com/gorilla/websocket"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 const (
-	TILL_BLOCK = iota
-	NEW_BLOCK
+	WS_STATE = iota
+	WS_UPDATE
+	WS_ADD_BLOCK
 )
 
 type socketData_T struct {
 	Event int `json:"event"`
 	Body []byte `json:"body"`
+}
+
+type wsAddBlockData_T struct {
+	Head *blockHead_T `json:"head"`
+	PoolCache *poolCache_T `json:"poolCache"`
+}
+
+func (wsAddBlockData *wsAddBlockData_T) encode() ([]byte, error) {
+	bs, err := json.Marshal(wsAddBlockData)
+	if err != nil {
+		return nil, err
+	}
+
+	return bs, nil
+}
+
+func decodeWsAddBlockData(bs []byte) (*wsAddBlockData_T, error) {
+	wsAddBlockData := &wsAddBlockData_T{}
+	err := json.Unmarshal(bs, wsAddBlockData)
+	if err != nil {
+		return nil, err
+	}
+
+	return wsAddBlockData, err
 }
 
 var upgrader = websocket.Upgrader{}
@@ -29,18 +55,25 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		print(log_error, "Error during connection upgradation:", err)
 		return
 	}
-//	defer conn.Close()
+	defer conn.Close()
 
-/*
-	if len(blockchain) != 0 {
-		data := socketData_T {TILL_BLOCK, blockchain[len(blockchain) - 1].Head}
-		err := conn.WriteJSON(data)
-		if err != nil {
-			print(log_error, err)
-			return
-		}
+	print(log_info, "update")
+	cache := poolToCache()
+
+	bs, err := cache.encode()
+	if err != nil {
+		print(log_error, err)
+		return
 	}
-	*/
+
+	socketData := socketData_T { WS_UPDATE, bs }
+	err = conn.WriteJSON(socketData)
+	if err != nil {
+		print(log_error, err)
+		return
+	}
+
+	print(log_info, "ws_new_roots sended")
 
 	// The event loop
 	for {
@@ -56,34 +89,55 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		print(log_info, data)
+		print(log_info, data.Event)
 
 		switch data.Event {
-		case NEW_BLOCK:
-			log.Println("new block")
 
-			block := &block_T{}
-			err = json.Unmarshal(data.Body, block)
+		case WS_ADD_BLOCK:
+			print(log_info, "new block")
+
+			wsAddBlockData, err := decodeWsAddBlockData(data.Body[:])
 			if err != nil {
 				print(log_error, err)
-				break
+				return
 			}
-			log.Println(block.Head.PrevHash)
 
-			buffer := make([]byte, 4, 4)
-			binary.LittleEndian.PutUint32(buffer, block.Head.Index)
+			blockBody := &blockBody_T { wsAddBlockData.PoolCache.Transactions }
+			block := &block_T { wsAddBlockData.Head, blockBody }
+			// TODO add block validation
 
-			err = toolDB.Put([]byte("till"), buffer, nil)
+			batch := &leveldb.Batch{}
+			batch.Put([]byte("state"), wsAddBlockData.PoolCache.State.encode())
+			fmt.Printf("hash: %072x", block.Head.Hash)
+			batch.Put(block.Head.Hash[32:], block.encode())
+
+			if len(transactionPool) <= 511 {
+				transactionPool = make([]*transaction_T, 0, 511)
+			} else {
+				transactionPool = transactionPool[511:]
+			}
+
+			err = chainDB.Write(batch, nil)
 			if err != nil {
 				print(log_error, err)
-				break
+				return
 			}
 
-			err = chainDB.Put(buffer, data.Body, nil)
+			poolCache := poolToCache()
+			bs, err := poolCache.encode()
 			if err != nil {
 				print(log_error, err)
-				break
+				return
 			}
+
+			socketData := socketData_T { WS_ADD_BLOCK, bs }
+			err = conn.WriteJSON(socketData)
+			if err != nil {
+				print(log_error, err)
+				return
+			}
+
+			print(log_info, "ws_state sended")
 		}
 	}
 }

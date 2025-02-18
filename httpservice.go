@@ -9,9 +9,11 @@ import (
 func runHttpServer(port string) {
 	http.HandleFunc("/peer", peerHandler)
 	http.HandleFunc("/socket", socketHandler)
+	http.HandleFunc("/state", stateHandler)
+	http.HandleFunc("/listassets", listAssetsHandler)
 	http.HandleFunc("/blockchain", blockchainHandler)
 	http.HandleFunc("/block", blockHandler)
-	http.HandleFunc("/sendrawtransaction", sendRawTransaction)
+	http.HandleFunc("/sendrawtransaction", sendRawTransactionHandler)
 	http.HandleFunc("/txpool", txPool)
 
 	server := http.Server {
