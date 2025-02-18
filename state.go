@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"net/http"
+	"fmt"
 	"log"
 )
 
@@ -88,6 +89,8 @@ func stateHandler(w http.ResponseWriter, req *http.Request) {
 
 	state := getState()
 
+	fmt.Println(state)
+	fmt.Println(state.Assets)
 	stateBytes, err := json.Marshal(state)
 	if err != nil {
 		print(log_error, err)

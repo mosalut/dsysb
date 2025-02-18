@@ -17,6 +17,7 @@ const (
 	type_coinbase = iota
 	type_create
 	type_transfer
+	type_exchange
 )
 
 type publicKey_T struct {
@@ -62,6 +63,8 @@ func transactionValidate(transaction *transaction_T) bool {
 	case type_create:
 		return true
 	case type_transfer:
+		return true
+	case type_exchange:
 		return true
 	}
 

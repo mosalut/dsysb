@@ -57,24 +57,6 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	print(log_info, "update")
-	cache := poolToCache()
-
-	bs, err := cache.encode()
-	if err != nil {
-		print(log_error, err)
-		return
-	}
-
-	socketData := socketData_T { WS_UPDATE, bs }
-	err = conn.WriteJSON(socketData)
-	if err != nil {
-		print(log_error, err)
-		return
-	}
-
-	print(log_info, "ws_new_roots sended")
-
 	// The event loop
 	for {
 		data := socketData_T{}
@@ -89,10 +71,25 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		print(log_info, data.Event)
-
 		switch data.Event {
+		case WS_UPDATE:
+			print(log_info, "update")
 
+			cache := poolToCache()
+			bs, err := cache.encode()
+			if err != nil {
+				print(log_error, err)
+				return
+			}
+
+			socketData := socketData_T { WS_UPDATE, bs }
+			err = conn.WriteJSON(socketData)
+			if err != nil {
+				print(log_error, err)
+				return
+			}
+
+			print(log_info, "ws_update sended")
 		case WS_ADD_BLOCK:
 			print(log_info, "new block")
 
@@ -108,7 +105,6 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 
 			batch := &leveldb.Batch{}
 			batch.Put([]byte("state"), wsAddBlockData.PoolCache.State.encode())
-			fmt.Printf("hash: %072x", block.Head.Hash)
 			batch.Put(block.Head.Hash[32:], block.encode())
 
 			if len(transactionPool) <= 511 {

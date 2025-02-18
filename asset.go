@@ -74,24 +74,15 @@ func listAssetsHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-//	assets := make([]*asset_T, 0, 256)
-
 	state := getState()
-	if state == nil {
-		print(log_error, "state is nil")
-		writeResult(w, responseResult_T{false, "state is nil", nil})
-		return
-	}
 
-	hash := state.hash()
-	stateB, err := chainDB.Get(hash[32:], nil)
+	bs, err := json.Marshal(state.Assets)
 	if err != nil {
-		print(log_error, err)
 		writeResult(w, responseResult_T{false, err.Error(), nil})
 		return
 	}
 
-	writeResult(w, responseResult_T{true, "ok", stateB})
+	writeResult(w, responseResult_T{true, "ok", bs})
 }
 
 type createAsset_T struct {

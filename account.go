@@ -1,3 +1,5 @@
+// dsysb
+
 package main
 
 import (
@@ -7,7 +9,7 @@ import (
 
 type account_T struct {
 	Balance uint64 `json:"balance"`
-	Asset map[string]uint64 `json:"asset"` // key is an asset id
+	Assets map[string]uint64 `json:"assets"` // key is an asset id
 	Nonce uint32 `json:"nonce"`
 }
 
@@ -35,5 +37,3 @@ func decodeAccount(bs []byte) *account_T {
 func (account *account_T)hash() [32]byte {
 	return sha256.Sum256(account.encode())
 }
-
-var accountPool = make([]*account_T, 0, 500)
