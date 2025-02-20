@@ -53,22 +53,84 @@ func decodeRawTransaction(rawTransaction []byte) (*transaction_T, error) {
 	return &transaction, nil
 }
 
-func transactionValidate(transaction *transaction_T) bool {
-	typ := uint8(transaction.Data[0])
-
-	// TODO
-	switch typ {
+func transactionValidate(transaction *transaction_T) error {
+	switch transaction.Type {
 	case type_coinbase:
-		return true
+		return errors.New("illage type")
 	case type_create:
-		return true
+		ca, err := decodeCreateAsset(transaction.Data)
+		if err != nil {
+			return err
+		}
+
+		poolMutex.Lock()
+		defer poolMutex.Unlock()
+		for _, signature := range signatures {
+			s := fmt.Sprintf("%0128x", ca.Signer.Signature)
+			if s == signature {
+				return errors.New(fmt.Sprintf("%064x", transaction.Txid) + " replay: " + s)
+			}
+			signatures = append(signatures, s)
+			transactionPool = append(transactionPool, transaction)
+		}
+
+		var nonce uint32
+		state := getState()
+		account, ok := state.Accounts[ca.From]
+		if ok {
+			nonce = account.Nonce
+		}
+
+		if ca.Nonce - nonce != 1 {
+			return errors.New("The nonces are not match")
+		}
+		return nil
 	case type_transfer:
-		return true
+		transfer, err := decodeTransfer(transaction.Data)
+		if err != nil {
+			return err
+		}
+
+		state := getState()
+		assetId := fmt.Sprintf("%064x", transfer.AssetId)
+		fmt.Println(assetId)
+
+		for k, _ := range state.Assets {
+			fmt.Println(k)
+		}
+		_, ok := state.Assets[assetId]
+		if !ok {
+			return errors.New("There's not the asset id")
+		}
+
+		poolMutex.Lock()
+		defer poolMutex.Unlock()
+		for _, signature := range signatures {
+			s := fmt.Sprintf("%0128x", transfer.Signer.Signature)
+			if s == signature {
+				return errors.New(fmt.Sprintf("%064x", transaction.Txid) + " replay: " + s)
+			}
+			signatures = append(signatures, s)
+			transactionPool = append(transactionPool, transaction)
+		}
+
+		var nonce uint32
+		account, ok := state.Accounts[transfer.From]
+		if !ok {
+			return errors.New("There's not the account id")
+		}
+
+		nonce = account.Nonce
+		fmt.Println("nonces:", transfer.Nonce, nonce)
+		if transfer.Nonce - nonce != 1 {
+			return errors.New("The nonces are not match")
+		}
+		return nil
 	case type_exchange:
-		return true
+		return nil
 	}
 
-	return true
+	return nil
 }
 
 func sendRawTransaction(body io.ReadCloser) error {
@@ -95,8 +157,9 @@ func sendRawTransaction(body io.ReadCloser) error {
 		return err
 	}
 
-	if !transactionValidate(transaction) {
-		return errors.New("transaction valid failed")
+	err = transactionValidate(transaction)
+	if err != nil {
+		return err
 	}
 
 	// TODO  more validations

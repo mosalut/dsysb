@@ -5,7 +5,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"fmt"
+//	"fmt"
 
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"

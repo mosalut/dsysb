@@ -1,3 +1,5 @@
+// dsysb
+
 package main
 
 import (
@@ -7,6 +9,8 @@ import (
 
 var transactionPool = make([]*transaction_T, 0, 511)
 var poolMutex = &sync.Mutex{}
+
+var signatures = make([]string, 0, 511)
 
 type poolCache_T struct {
 	State *state_T `json:"state"`

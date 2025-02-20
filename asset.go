@@ -93,6 +93,7 @@ type createAsset_T struct {
 	Price uint64 `json:"price"`
 	Blocks uint32 `json:"blocks"`
 	From string `json:"from"`
+	Nonce uint32 `json:"nonce"`
 	Signer *signer_T `json:"signer"`
 }
 
@@ -152,5 +153,6 @@ func (ca *createAsset_T) String() string {
 		"\tprice: %d\n" +
 		"\tblocks: %d\n" +
 		"\tfrom: %s\n" +
-		"%s", ca.Name, ca.Symbol, ca.Decimals, ca.TotalSupply, ca.Price, ca.Blocks, ca.From, ca.Signer)
+		"\tnonce: %d\n" +
+		"%s", ca.Name, ca.Symbol, ca.Decimals, ca.TotalSupply, ca.Price, ca.Blocks, ca.From, ca.Nonce, ca.Signer)
 }
