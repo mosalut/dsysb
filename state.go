@@ -11,6 +11,8 @@ import (
 	"log"
 )
 
+const dsysbId = "0000000000000000000000000000000000000000000000000000000000000000"
+
 type state_T struct {
 	PrevHash [36]byte `json:"prevHash"`
 	Bits uint32 `json:"bits"`

@@ -71,7 +71,6 @@ func transactionValidate(transaction *transaction_T) error {
 				return errors.New(fmt.Sprintf("%064x", transaction.Txid) + " replay: " + s)
 			}
 			signatures = append(signatures, s)
-			transactionPool = append(transactionPool, transaction)
 		}
 
 		var nonce uint32
@@ -95,22 +94,27 @@ func transactionValidate(transaction *transaction_T) error {
 			return errors.New("Transfer to self is not allowed")
 		}
 
-		state := getState()
-		assetId := fmt.Sprintf("%064x", transfer.AssetId)
-
-		_, ok := state.Assets[assetId]
-		if !ok {
-			return errors.New("There's not the asset id: " + assetId)
-		}
-
-		poolMutex.Lock()
-		defer poolMutex.Unlock()
 		for _, signature := range signatures {
 			s := fmt.Sprintf("%0128x", transfer.Signer.Signature)
 			if s == signature {
 				return errors.New(fmt.Sprintf("%064x", transaction.Txid) + " replay: " + s)
 			}
 			signatures = append(signatures, s)
+		}
+
+		state := getState()
+		assetId := fmt.Sprintf("%064x", transfer.AssetId)
+
+		poolMutex.Lock()
+		defer poolMutex.Unlock()
+
+		if assetId != dsysbId {
+			_, ok := state.Assets[assetId]
+			if !ok {
+				print(log_error, "There's not the asset id: " + assetId)
+				return errors.New("There's not the asset id: " + assetId)
+			}
+
 		}
 
 		var nonce uint32
@@ -125,7 +129,6 @@ func transactionValidate(transaction *transaction_T) error {
 			return errors.New("The nonces are not match")
 		}
 
-		transactionPool = append(transactionPool, transaction)
 		return nil
 	case type_exchange:
 		exchange, err := decodeExchange(transaction.Data)
@@ -147,9 +150,11 @@ func transactionValidate(transaction *transaction_T) error {
 
 			assetId := fmt.Sprintf("%064x", transfer.AssetId)
 
-			_, ok := state.Assets[assetId]
-			if !ok {
-				return errors.New("There's not the asset id: " + assetId)
+			if assetId != dsysbId {
+				_, ok := state.Assets[assetId]
+				if !ok {
+					return errors.New("There's not the asset id: " + assetId)
+				}
 			}
 
 			// proccess replay attack
@@ -174,7 +179,6 @@ func transactionValidate(transaction *transaction_T) error {
 			}
 		}
 
-		transactionPool = append(transactionPool, transaction)
 		return nil
 	}
 
