@@ -91,16 +91,16 @@ func transactionValidate(transaction *transaction_T) error {
 			return err
 		}
 
+		if transfer.From == transfer.To {
+			return errors.New("Transfer to self is not allowed")
+		}
+
 		state := getState()
 		assetId := fmt.Sprintf("%064x", transfer.AssetId)
-		fmt.Println(assetId)
 
-		for k, _ := range state.Assets {
-			fmt.Println(k)
-		}
 		_, ok := state.Assets[assetId]
 		if !ok {
-			return errors.New("There's not the asset id")
+			return errors.New("There's not the asset id: " + assetId)
 		}
 
 		poolMutex.Lock()
@@ -111,7 +111,6 @@ func transactionValidate(transaction *transaction_T) error {
 				return errors.New(fmt.Sprintf("%064x", transaction.Txid) + " replay: " + s)
 			}
 			signatures = append(signatures, s)
-			transactionPool = append(transactionPool, transaction)
 		}
 
 		var nonce uint32
@@ -125,8 +124,57 @@ func transactionValidate(transaction *transaction_T) error {
 		if transfer.Nonce - nonce != 1 {
 			return errors.New("The nonces are not match")
 		}
+
+		transactionPool = append(transactionPool, transaction)
 		return nil
 	case type_exchange:
+		exchange, err := decodeExchange(transaction.Data)
+		if err != nil {
+			return err
+		}
+
+		if exchange[0].From != exchange[1].To || exchange[0].To != exchange[1].From {
+			return errors.New("Exchange address not match")
+		}
+
+		state := getState()
+		poolMutex.Lock()
+		defer poolMutex.Unlock()
+		for _, transfer := range exchange {
+			if transfer.From == transfer.To {
+				return errors.New("Exchange to self is not allowed")
+			}
+
+			assetId := fmt.Sprintf("%064x", transfer.AssetId)
+
+			_, ok := state.Assets[assetId]
+			if !ok {
+				return errors.New("There's not the asset id: " + assetId)
+			}
+
+			// proccess replay attack
+			for _, signature := range signatures {
+				s := fmt.Sprintf("%0128x", transfer.Signer.Signature)
+				if s == signature {
+					return errors.New(fmt.Sprintf("%064x", transaction.Txid) + " replay: " + s)
+				}
+				signatures = append(signatures, s)
+			}
+
+			var nonce uint32
+			account, ok := state.Accounts[transfer.From]
+			if !ok {
+				return errors.New("There's not the account id")
+			}
+
+			nonce = account.Nonce
+		//	fmt.Println("nonces:", transfer.Nonce, nonce)
+			if transfer.Nonce - nonce != 1 {
+				return errors.New("The nonces are not match")
+			}
+		}
+
+		transactionPool = append(transactionPool, transaction)
 		return nil
 	}
 
@@ -161,6 +209,7 @@ func sendRawTransaction(body io.ReadCloser) error {
 	if err != nil {
 		return err
 	}
+
 
 	// TODO  more validations
 	poolMutex.Lock()

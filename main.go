@@ -29,6 +29,7 @@ func init() {
 }
 
 func main() {
+	showLogo()
 	log.Println(*cmdFlag)
 
 	if cmdFlag.remoteHost != "" {
