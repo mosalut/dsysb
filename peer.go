@@ -1,16 +1,11 @@
 package main
 
 import (
-	"math/big"
-//	"crypto/elliptic"
-	"crypto/ecdsa"
-	"encoding/hex"
 	"encoding/json"
 	"net"
 	"net/http"
 	"fmt"
 	"log"
-//	"reflect"
 
 	"github.com/mosalut/q2p"
 )
@@ -28,7 +23,7 @@ const (
 var peer *q2p.Peer_T
 
 func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body []byte) {
-	fmt.Println("hash key:", key)
+//	fmt.Println("hash key:", key)
 
 	params := &p2pParams_T{}
 	err := json.Unmarshal(body, &params)
@@ -39,36 +34,18 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 
 	switch params.Key {
 	case p2p_transport_sendrawtransaction_event:
-		rawtransaction := hex.EncodeToString(params.Data)
+	//	rawtransaction := hex.EncodeToString(params.Data)
 
-		transaction := transaction_T{}
-		err := json.Unmarshal(params.Data, &transaction)
+		tx := decodeRawTransaction(params.Data)
+
+		err = tx.validate()
 		if err != nil {
-			log.Println(err)
+			print(log_error, err)
 			return
 		}
-
-		fmt.Println(rawtransaction)
-	//	fmt.Println(reflect.TypeOf(transaction..PublicKey))
-
-		switch transaction.Type {
-		case type_create:
-			ca, err := decodeCreateAsset(transaction.Data)
-			if err != nil {
-				print(log_error, err)
-				return
-			}
-			publicKey := ecdsa.PublicKey{ca.Signer.PublicKey.Curve, ca.Signer.PublicKey.X, ca.Signer.PublicKey.Y}
-			fmt.Println(publicKey)
-			ok := ecdsa.Verify(&publicKey, transaction.Txid[:], big.NewInt(0).SetBytes(ca.Signer.Signature[:32]), big.NewInt(0).SetBytes(ca.Signer.Signature[32:]))
-			if ok {
-				transactionPool = append(transactionPool, &transaction)
-				fmt.Println(transaction)
-			}
-		case type_transfer:
-
-			// TODO
-		}
+		poolMutex.Lock()
+		transactionPool = append(transactionPool, tx)
+		poolMutex.Unlock()
 	}
 }
 

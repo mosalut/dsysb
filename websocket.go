@@ -3,9 +3,7 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
-//	"fmt"
 
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -23,31 +21,33 @@ type socketData_T struct {
 }
 
 type wsAddBlockData_T struct {
-	Head *blockHead_T `json:"head"`
-	PoolCache *poolCache_T `json:"poolCache"`
+	address string // miner address
+	head *blockHead_T
+	poolCache *poolCache_T
 }
 
-func (wsAddBlockData *wsAddBlockData_T) encode() ([]byte, error) {
-	bs, err := json.Marshal(wsAddBlockData)
-	if err != nil {
-		return nil, err
-	}
+func (wsAddBlockData *wsAddBlockData_T) encode() []byte {
+	bs := append(wsAddBlockData.head.encode(), wsAddBlockData.poolCache.encode()...)
 
-	return bs, nil
+	return bs
 }
 
-func decodeWsAddBlockData(bs []byte) (*wsAddBlockData_T, error) {
-	wsAddBlockData := &wsAddBlockData_T{}
-	err := json.Unmarshal(bs, wsAddBlockData)
-	if err != nil {
-		return nil, err
+func decodeWsAddBlockData(bs []byte) *wsAddBlockData_T {
+	address := string(bs[:34])
+	blockHead := decodeBlockHead(bs[34:bh_length + 34])
+	poolCache := decodePoolCache(bs[34 + bh_length:])
+	wsAddBlockData := &wsAddBlockData_T{
+		address,
+		blockHead,
+		poolCache,
 	}
 
-	return wsAddBlockData, err
+	return wsAddBlockData
 }
 
 var upgrader = websocket.Upgrader{}
 
+var minerConns = make(map[*websocket.Conn]interface{})
 func socketHandler(w http.ResponseWriter, r *http.Request) {
 	// Upgrade our raw HTTP connection to a websocket based one
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -57,6 +57,8 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	minerConns[conn] = nil
+
 	// The event loop
 	for {
 		data := socketData_T{}
@@ -64,6 +66,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
 				conn.Close()
+				delete(minerConns, conn)
 				print(log_warning, "close normal closure")
 				break
 			}
@@ -75,12 +78,16 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		case WS_UPDATE:
 			print(log_info, "update")
 
+			address := string(data.Body)
+
 			cache := poolToCache()
-			bs, err := cache.encode()
-			if err != nil {
-				print(log_error, err)
-				return
+			coinbase := &coinbase_T {
+				address,
+				5e10,
 			}
+			cache.transactions = append([]transaction_I{ coinbase }, cache.transactions...)
+			cache.count()
+			bs := cache.encode()
 
 			socketData := socketData_T { WS_UPDATE, bs }
 			err = conn.WriteJSON(socketData)
@@ -93,22 +100,18 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		case WS_ADD_BLOCK:
 			print(log_info, "new block")
 
-			wsAddBlockData, err := decodeWsAddBlockData(data.Body[:])
-			if err != nil {
-				print(log_error, err)
-				return
-			}
+			wsAddBlockData := decodeWsAddBlockData(data.Body)
 
-			blockBody := &blockBody_T { wsAddBlockData.PoolCache.Transactions }
-			block := &block_T { wsAddBlockData.Head, blockBody }
+			blockBody := &blockBody_T { wsAddBlockData.poolCache.transactions }
+			block := &block_T { wsAddBlockData.head, blockBody }
 			// TODO add block validation
 
 			batch := &leveldb.Batch{}
-			batch.Put([]byte("state"), wsAddBlockData.PoolCache.State.encode())
+			batch.Put([]byte("state"), wsAddBlockData.poolCache.state.encode())
 			batch.Put(block.Head.Hash[32:], block.encode())
 
 			if len(transactionPool) <= 511 {
-				transactionPool = make([]*transaction_T, 0, 511)
+				transactionPool = make([]transaction_I, 0, 511)
 			} else {
 				transactionPool = transactionPool[511:]
 			}
@@ -119,21 +122,25 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			poolCache := poolToCache()
-			bs, err := poolCache.encode()
-			if err != nil {
-				print(log_error, err)
-				return
+			cache := poolToCache()
+			coinbase := &coinbase_T {
+				wsAddBlockData.address,
+				5e10,
 			}
+			cache.transactions = append([]transaction_I{ coinbase }, cache.transactions...)
+			cache.count()
+			bs := cache.encode()
 
 			socketData := socketData_T { WS_ADD_BLOCK, bs }
-			err = conn.WriteJSON(socketData)
-			if err != nil {
-				print(log_error, err)
-				return
-			}
 
-			print(log_info, "ws_state sended")
+			for conn, _ := range minerConns {
+				err = conn.WriteJSON(socketData)
+				if err != nil {
+					print(log_error, conn.RemoteAddr, err)
+					continue
+				}
+				print(log_info, conn.RemoteAddr(), "ws_state sended")
+			}
 		}
 	}
 }

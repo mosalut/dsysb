@@ -3,14 +3,11 @@
 package main
 
 import (
-	"math/big"
 	"encoding/json"
-	"crypto/elliptic"
 	"io"
 	"net"
 	"net/http"
 	"fmt"
-	"errors"
 )
 
 const (
@@ -20,123 +17,112 @@ const (
 	type_exchange
 )
 
-type publicKey_T struct {
-	Curve *elliptic.CurveParams `json:"curve"`
-	X *big.Int `json:"x"`
-	Y *big.Int `json:"y"`
+type transaction_I interface {
+	hash() [32]byte
+	getType() uint8
+	encode() []byte
+	validate() error
+	verifySign() bool
+	count(*poolCache_T, int)
+	String() string
 }
 
-type signer_T struct {
-	PublicKey *publicKey_T `json:"PublicKey"`
-	Signature [64]byte `json:"signature"`
-}
+func decodeRawTransaction(bs []byte) transaction_I {
+	length := len(bs)
 
-func (signer *signer_T) String() string {
-	return fmt.Sprintf(
-		"public key:\t%x%x\n" +
-		"signature:\t%x", signer.PublicKey.X.Bytes(), signer.PublicKey.Y.Bytes(), signer.Signature)
-}
-
-type transaction_T struct {
-	Txid [32]byte `json:"txid"`
-	Type uint8 `json:"type"`
-	Data []byte `json:"data"`
-}
-
-func decodeRawTransaction(rawTransaction []byte) (*transaction_T, error) {
-	transaction := transaction_T{}
-	err := json.Unmarshal(rawTransaction, &transaction)
-	if err != nil {
-		return nil, err
+	var tx transaction_I
+	switch length {
+	case coinbase_length:
+		tx = decodeCoinbase(bs)
+	case create_asset_length:
+		tx = decodeCreateAsset(bs)
+	case transfer_length:
+		tx = decodeTransfer(bs)
+	case exchange_length:
+		tx = decodeExchange(bs)
+	default:
+		print(log_error, "Wrong type")
 	}
 
-	return &transaction, nil
+	return tx
 }
 
-func transactionValidate(transaction *transaction_T) error {
-	switch transaction.Type {
-	case type_coinbase:
+/*
+func transactionValidate(rawTransaction []byte) error {
+	length := len(rawTransaction)
+
+	switch length {
+	case coinbase_length:
 		return errors.New("illage type")
-	case type_create:
-		ca, err := decodeCreateAsset(transaction.Data)
-		if err != nil {
-			return err
-		}
+	case create_asset_length:
+		ca := decodeCreateAsset(rawTransaction)
 
 		poolMutex.Lock()
 		defer poolMutex.Unlock()
+
+		// replay attack
 		for _, signature := range signatures {
-			s := fmt.Sprintf("%0128x", ca.Signer.Signature)
+			s := fmt.Sprintf("%0128x", ca.signer.signature)
 			if s == signature {
-				return errors.New(fmt.Sprintf("%064x", transaction.Txid) + " replay: " + s)
+				return errors.New(fmt.Sprintf("%064x", ca.hash()) + " replay: " + s)
 			}
 			signatures = append(signatures, s)
 		}
 
 		var nonce uint32
 		state := getState()
-		account, ok := state.Accounts[ca.From]
+		account, ok := state.accounts[ca.from]
 		if ok {
-			nonce = account.Nonce
+			nonce = account.nonce
 		}
 
-		if ca.Nonce - nonce != 1 {
+		if ca.nonce - nonce != 1 {
 			return errors.New("The nonces are not match")
 		}
-		return nil
-	case type_transfer:
-		transfer, err := decodeTransfer(transaction.Data)
-		if err != nil {
-			return err
-		}
+	case transfer_length:
+		transfer := decodeTransfer(rawTransaction)
 
-		if transfer.From == transfer.To {
+		if transfer.from == transfer.to {
 			return errors.New("Transfer to self is not allowed")
 		}
 
 		for _, signature := range signatures {
-			s := fmt.Sprintf("%0128x", transfer.Signer.Signature)
+			s := fmt.Sprintf("%0128x", transfer.signer.signature)
 			if s == signature {
-				return errors.New(fmt.Sprintf("%064x", transaction.Txid) + " replay: " + s)
+				return errors.New(fmt.Sprintf("%064x", transfer.hash()) + " replay: " + s)
 			}
 			signatures = append(signatures, s)
 		}
 
 		state := getState()
-		assetId := fmt.Sprintf("%064x", transfer.AssetId)
+		assetId := fmt.Sprintf("%064x", transfer.assetId)
 
 		poolMutex.Lock()
 		defer poolMutex.Unlock()
 
 		if assetId != dsysbId {
-			_, ok := state.Assets[assetId]
+			_, ok := state.assets[assetId]
 			if !ok {
 				print(log_error, "There's not the asset id: " + assetId)
 				return errors.New("There's not the asset id: " + assetId)
 			}
-
 		}
 
 		var nonce uint32
-		account, ok := state.Accounts[transfer.From]
+		account, ok := state.accounts[transfer.from]
 		if !ok {
 			return errors.New("There's not the account id")
 		}
 
-		nonce = account.Nonce
-		fmt.Println("nonces:", transfer.Nonce, nonce)
-		if transfer.Nonce - nonce != 1 {
+		nonce = account.nonce
+		fmt.Println("nonces:", transfer.nonce, nonce)
+		if transfer.nonce - nonce != 1 {
 			return errors.New("The nonces are not match")
 		}
+	case exchange_length:
+		exchange := decodeExchange(rawTransaction)
 
-		return nil
-	case type_exchange:
-		exchange, err := decodeExchange(transaction.Data)
-		if err != nil {
-			return err
-		}
-
-		if exchange[0].From != exchange[1].To || exchange[0].To != exchange[1].From {
+		if exchange[0].from != exchange[1].to || exchange[0].to != exchange[1].from {
 			return errors.New("Exchange address not match")
 		}
 
@@ -144,14 +130,14 @@ func transactionValidate(transaction *transaction_T) error {
 		poolMutex.Lock()
 		defer poolMutex.Unlock()
 		for _, transfer := range exchange {
-			if transfer.From == transfer.To {
+			if transfer.from == transfer.to {
 				return errors.New("Exchange to self is not allowed")
 			}
 
-			assetId := fmt.Sprintf("%064x", transfer.AssetId)
+			assetId := fmt.Sprintf("%064x", transfer.assetId)
 
 			if assetId != dsysbId {
-				_, ok := state.Assets[assetId]
+				_, ok := state.assets[assetId]
 				if !ok {
 					return errors.New("There's not the asset id: " + assetId)
 				}
@@ -159,31 +145,33 @@ func transactionValidate(transaction *transaction_T) error {
 
 			// proccess replay attack
 			for _, signature := range signatures {
-				s := fmt.Sprintf("%0128x", transfer.Signer.Signature)
+				s := fmt.Sprintf("%0128x", transfer.signer.signature)
 				if s == signature {
-					return errors.New(fmt.Sprintf("%064x", transaction.Txid) + " replay: " + s)
+					return errors.New(fmt.Sprintf("%064x", exchange.hash()) + " replay: " + s)
 				}
 				signatures = append(signatures, s)
 			}
 
 			var nonce uint32
-			account, ok := state.Accounts[transfer.From]
+			account, ok := state.accounts[transfer.from]
 			if !ok {
 				return errors.New("There's not the account id")
 			}
 
-			nonce = account.Nonce
+			nonce = account.nonce
 		//	fmt.Println("nonces:", transfer.Nonce, nonce)
-			if transfer.Nonce - nonce != 1 {
+			if transfer.nonce - nonce != 1 {
 				return errors.New("The nonces are not match")
 			}
 		}
+	default:
+		return errors.New("Wrong length")
 
-		return nil
 	}
 
 	return nil
 }
+*/
 
 func sendRawTransaction(body io.ReadCloser) error {
 	defer body.Close()
@@ -204,16 +192,19 @@ func sendRawTransaction(body io.ReadCloser) error {
 		return err
 	}
 
-	transaction, err := decodeRawTransaction(params.Data)
-	if err != nil {
-		return err
-	}
+	transaction := decodeRawTransaction(params.Data)
 
+	/*
 	err = transactionValidate(transaction)
 	if err != nil {
 		return err
 	}
+	*/
 
+	err = transaction.validate()
+	if err != nil {
+		return err
+	}
 
 	// TODO  more validations
 	poolMutex.Lock()
@@ -258,6 +249,10 @@ func sendRawTransactionHandler(w http.ResponseWriter, req *http.Request) {
 
 func poolToCache() *poolCache_T {
 	state := getState()
+
+	fmt.Println("----------------------")
+	fmt.Println(state.accounts)
+	fmt.Println(state.accounts == nil)
 	if len(transactionPool) <= 511 {
 		return &poolCache_T {
 			state,
@@ -283,11 +278,8 @@ func txPool(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	bs, err := json.Marshal(transactionPool)
-	if err != nil {
-		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
-		return
-	}
+	fmt.Println(transactionPool)
+	bs := transactionPool.encode()
 
 	writeResult(w, responseResult_T{true, "ok", bs})
 }

@@ -3,36 +3,69 @@
 package main
 
 import (
-	"encoding/json"
+	"crypto/sha256"
+	"encoding/binary"
+	"errors"
 	"fmt"
 )
 
+const (
+	coinbase_length = 42
+	coinbase_amount_position = 34
+)
+
 type coinbase_T struct {
-	To string `json:"to"`
-	Amount uint64 `json:"amount"`
+	to string
+	amount uint64
 }
 
-func (coinbase *coinbase_T) encode() ([]byte, error) {
-	bs, err := json.Marshal(coinbase)
-	if err != nil {
-		return nil, err
-	}
-
-	return bs, nil
+func (tx *coinbase_T) hash() [32]byte {
+	return sha256.Sum256(tx.encode())
 }
 
-func decodeCoinbase(bs []byte) (*coinbase_T, error) {
+func (coinbase *coinbase_T) getType() uint8 {
+	return type_coinbase
+}
+
+func (coinbase *coinbase_T) encode() []byte {
+	bs := make([]byte, coinbase_length, coinbase_length)
+	copy(bs[:coinbase_amount_position], []byte(coinbase.to))
+	binary.LittleEndian.PutUint64(bs[coinbase_amount_position:], coinbase.amount)
+
+	return bs
+}
+
+func decodeCoinbase(bs []byte) *coinbase_T {
 	coinbase := &coinbase_T{}
-	err := json.Unmarshal(bs, coinbase)
-	if err != nil {
-		return nil, err
-	}
+	coinbase.to = string(bs[:coinbase_amount_position])
+	coinbase.amount = binary.LittleEndian.Uint64(bs[coinbase_amount_position:])
 
-	return coinbase, nil
+	return coinbase
+}
+
+func (coinbase *coinbase_T) validate() error {
+	return errors.New("illage type")
+}
+
+func (coinbase *coinbase_T) verifySign() bool {
+	return true
+}
+
+func (coinbase *coinbase_T) count(cache *poolCache_T, index int) {
+	_, ok := cache.state.accounts[coinbase.to]
+	if !ok {
+		cache.state.accounts[coinbase.to] = &account_T {
+			coinbase.amount,
+			make(map[string]uint64),
+			0,
+		}
+	} else {
+		cache.state.accounts[coinbase.to].balance += coinbase.amount
+	}
 }
 
 func (coinbase *coinbase_T) String() string {
 	return fmt.Sprintf(
 		"\tto: %s\n" +
-		"\tamount: %d", coinbase.To, coinbase.Amount)
+		"\tamount: %d", coinbase.to, coinbase.amount)
 }

@@ -4,56 +4,109 @@ package main
 
 import (
 	"crypto/sha256"
-	"encoding/json"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"math/big"
+	"encoding/binary"
 	"net/http"
 	"errors"
 	"fmt"
 )
 
-// The `Name` is the asset Name.
-// The `Symbol` is the asset Symbol.
-// `TotalSupply` is just total supply.
-// `Price` represent the Price of the asset that is holden by an block.
+const (
+	asset_length = 40
+	asset_symbol_position = 10
+	asset_decimals_position = 15
+	asset_total_supply_position = 16
+	asset_price_position = 24
+	asset_blocks_position = 32
+	asset_remain_position = 36
+
+	create_asset_length = 202
+	create_asset_from_position = 36
+	create_asset_nonce_position = 70
+	create_asset_signer_position = 74
+)
+
+// The `name` is the asset Name.
+// The `symbol` is the asset Symbol.
+// `totalSupply` is just total supply.
+// `price` represent the Price of the asset that is holden by an block.
+// `blocks` represent how many Blocks the asset holden.
 type asset_T struct {
-	Name string `json:"name"`
-	Symbol string `json:"symbol"`
-	Decimals uint8 `json:"decimals"`
-	TotalSupply uint64 `json:"totalSupply"`
-	Price uint64 `json:"price"`
-	Blocks uint32 `json:"blocks"`
-	Height uint32 `json:"height"`
+	name string
+	symbol string
+	decimals uint8
+	totalSupply uint64
+	price uint64
+	blocks uint32
+	remain uint32
 }
 
-func (asset *asset_T) hash () ([32]byte, error) {
-	bs, err := asset.encode()
-	if err != nil {
-		return [32]byte{}, err
-	}
+func (asset *asset_T) hash() [32]byte {
+	bs := make([]byte, asset_length, asset_length)
+	copy(bs[:asset_symbol_position], []byte(asset.name))
+	copy(bs[asset_symbol_position:asset_decimals_position], []byte(asset.symbol))
+	bs[asset_decimals_position] = byte(asset.decimals)
+	binary.LittleEndian.PutUint64(bs[asset_total_supply_position:asset_price_position], asset.totalSupply)
+	binary.LittleEndian.PutUint64(bs[asset_price_position:asset_blocks_position], asset.price)
+	binary.LittleEndian.PutUint32(bs[asset_blocks_position:asset_remain_position], asset.blocks)
 	h := sha256.Sum256(bs)
 
-	return h, nil
+	return h
 }
 
-func (asset *asset_T) encode () ([]byte, error) {
-	bs, err := json.Marshal(asset)
-	if err != nil {
-		return nil, err
-	}
+func (asset *asset_T) encode () []byte {
+	bs := make([]byte, asset_length, asset_length)
+	copy(bs[:asset_symbol_position], []byte(asset.name))
+	copy(bs[asset_symbol_position:asset_decimals_position], []byte(asset.symbol))
+	bs[asset_decimals_position] = byte(asset.decimals)
+	binary.LittleEndian.PutUint64(bs[asset_total_supply_position:asset_price_position], asset.totalSupply)
+	binary.LittleEndian.PutUint64(bs[asset_price_position:asset_blocks_position], asset.price)
+	binary.LittleEndian.PutUint32(bs[asset_blocks_position:asset_remain_position], asset.blocks)
+	binary.LittleEndian.PutUint32(bs[asset_remain_position:], asset.remain)
 
-	return bs, nil
+	return bs
 }
 
-func decodeAsset(bs []byte) (*asset_T, error) {
+func decodeAsset(bs []byte) *asset_T {
 	asset := &asset_T{}
-	err := json.Unmarshal(bs, asset)
-	if err != nil {
-		return nil, err
-	}
+	asset.name = string(bs[:asset_symbol_position])
+	asset.symbol = string(bs[asset_symbol_position:asset_decimals_position])
+	asset.decimals = uint8(bs[asset_decimals_position])
+	asset.totalSupply = binary.LittleEndian.Uint64(bs[asset_total_supply_position:asset_price_position])
+	asset.price = binary.LittleEndian.Uint64(bs[asset_price_position:asset_blocks_position])
+	asset.blocks = binary.LittleEndian.Uint32(bs[asset_blocks_position:asset_remain_position])
+	asset.remain = binary.LittleEndian.Uint32(bs[asset_remain_position:])
 
-	return asset, nil
+	return asset
 }
 
-var assetPool = make([]*asset_T, 0, 500)
+type assetPool_T map[string]*asset_T  // key is an assetId
+func (pool assetPool_T) encode() []byte {
+	length := len(pool) * asset_length
+	bs := make([]byte, 0, length)
+	for _, asset := range pool {
+		bs = append(bs, asset.encode()...)
+	}
+
+	return bs
+}
+
+func decodeAssetPool(bs []byte) assetPool_T {
+	pool := make(assetPool_T)
+	lengthByte := len(bs)
+	if lengthByte == 0 {
+		return pool
+	}
+	length := lengthByte / asset_length
+	for i := 0 ; i < length; i++ {
+		asset := decodeAsset(bs[i * asset_length:(i + 1) * asset_length])
+		pool[fmt.Sprintf("%064x", asset.hash())] = asset
+	}
+
+	return pool
+}
 
 // `Blocks` represent how many Blocks the asset holden.
 type prolong_T struct {
@@ -76,72 +129,151 @@ func listAssetsHandler(w http.ResponseWriter, req *http.Request) {
 
 	state := getState()
 
-	bs, err := json.Marshal(state.Assets)
-	if err != nil {
-		writeResult(w, responseResult_T{false, err.Error(), nil})
-		return
-	}
-
-	writeResult(w, responseResult_T{true, "ok", bs})
+	writeResult(w, responseResult_T{true, "ok", state.assets.encode()})
 }
 
 type createAsset_T struct {
-	Name string `json:"name"`
-	Symbol string `json:"symbol"`
-	Decimals uint8 `json:"decimals"`
-	TotalSupply uint64 `json:"totalSupply"`
-	Price uint64 `json:"price"`
-	Blocks uint32 `json:"blocks"`
-	From string `json:"from"`
-	Nonce uint32 `json:"nonce"`
-	Signer *signer_T `json:"signer"`
+	name string
+	symbol string
+	decimals uint8
+	totalSupply uint64
+	price uint64
+	blocks uint32
+	from string
+	nonce uint32
+	signer *signer_T
 }
 
-func (ca *createAsset_T) encode() ([]byte, error) {
-	bs, err := json.Marshal(ca)
-	if err != nil {
-		return nil, err
-	}
+func (tx *createAsset_T) hash() [32]byte {
+	bs := make([]byte, create_asset_length, create_asset_length)
+	copy(bs[:asset_symbol_position], []byte(tx.name))
+	copy(bs[asset_symbol_position:asset_decimals_position], []byte(tx.symbol))
+	bs[asset_decimals_position] = byte(tx.decimals)
+	binary.LittleEndian.PutUint64(bs[asset_total_supply_position:asset_price_position], tx.totalSupply)
+	binary.LittleEndian.PutUint64(bs[asset_price_position:asset_blocks_position], tx.price)
+	binary.LittleEndian.PutUint32(bs[asset_blocks_position:create_asset_from_position], tx.blocks)
+	copy(bs[create_asset_from_position:create_asset_nonce_position], []byte(tx.from))
+	binary.LittleEndian.PutUint32(bs[create_asset_nonce_position:create_asset_signer_position], tx.nonce)
 
-	return bs, nil
+	return sha256.Sum256(bs)
 }
 
-func decodeCreateAsset(bs []byte) (*createAsset_T, error) {
+func (ca *createAsset_T) getType() uint8 {
+	return type_create
+}
+
+func (ca *createAsset_T) encode() []byte {
+	bs := make([]byte, create_asset_length, create_asset_length)
+	copy(bs[:asset_symbol_position], []byte(ca.name))
+	copy(bs[asset_symbol_position:asset_decimals_position], []byte(ca.symbol))
+	bs[asset_decimals_position] = byte(ca.decimals)
+	binary.LittleEndian.PutUint64(bs[asset_total_supply_position:asset_price_position], ca.totalSupply)
+	binary.LittleEndian.PutUint64(bs[asset_price_position:asset_blocks_position], ca.price)
+	binary.LittleEndian.PutUint32(bs[asset_blocks_position:create_asset_from_position], ca.blocks)
+	copy(bs[create_asset_from_position:create_asset_nonce_position], []byte(ca.from))
+	binary.LittleEndian.PutUint32(bs[create_asset_nonce_position:create_asset_signer_position], ca.nonce)
+	copy(bs[create_asset_signer_position:], ca.signer.encode())
+
+	return bs
+}
+
+func decodeCreateAsset(bs []byte) *createAsset_T {
 	ca := &createAsset_T{}
-	err := json.Unmarshal(bs, ca)
-	if err != nil {
-		return nil, err
-	}
 
-	return ca, nil
+	ca.name = string(bs[:asset_symbol_position])
+	ca.symbol = string(bs[asset_symbol_position:asset_decimals_position])
+	ca.decimals = uint8(bs[asset_decimals_position])
+	ca.totalSupply = binary.LittleEndian.Uint64(bs[asset_total_supply_position:asset_price_position])
+	ca.price = binary.LittleEndian.Uint64(bs[asset_price_position:asset_blocks_position])
+	ca.blocks = binary.LittleEndian.Uint32(bs[asset_blocks_position:create_asset_from_position])
+	ca.from = string(bs[create_asset_from_position:create_asset_nonce_position])
+	ca.nonce = binary.LittleEndian.Uint32(bs[create_asset_nonce_position:create_asset_signer_position])
+	ca.signer = decodeSigner(bs[create_asset_signer_position:])
+
+
+	return ca
 }
 
-func (ca *createAsset_T) check() error {
-	if len(ca.Name) > 10 || len(ca.Name) < 5 {
-		return errors.New("The length of `name` must between 5 to 10")
+func (ca *createAsset_T) validate() error {
+	poolMutex.Lock()
+	defer poolMutex.Unlock()
+
+	// replay attack
+	for _, signature := range signatures {
+		s := fmt.Sprintf("%0128x", ca.signer.signature)
+		if s == signature {
+			return errors.New(fmt.Sprintf("%064x", ca.hash()) + " replay: " + s)
+		}
+		signatures = append(signatures, s)
 	}
 
-	if len(ca.Symbol) > 5 || len(ca.Symbol) < 3 {
-		return errors.New("The length of `name` must between 3 to 5")
+	var nonce uint32
+	state := getState()
+	account, ok := state.accounts[ca.from]
+	if ok {
+		nonce = account.nonce
 	}
 
-	if ca.Decimals > 18 {
-		return errors.New("`decimals` must <= 18")
+	fmt.Println("nonce:", ca.nonce, nonce)
+	if ca.nonce - nonce != 1 {
+		return errors.New("The nonces are not match")
 	}
 
-	if ca.Price == 0 {
-		return errors.New("`price` must > 0")
-	}
-
-	if ca.Blocks < 10000 {
-		return errors.New("`blocks` must >= 10000")
-	}
-
-	if !validateAddress(ca.From) {
-		return errors.New("`from`: invalid address")
+	ok = ca.verifySign()
+	if !ok {
+		return errors.New("Invalid signature")
 	}
 
 	return nil
+}
+
+func (ca *createAsset_T) verifySign() bool {
+	publicKey := ecdsa.PublicKey{elliptic.P256(), ca.signer.x, ca.signer.y}
+	fmt.Println(publicKey)
+	txid := ca.hash()
+	ok := ecdsa.Verify(&publicKey, txid[:], big.NewInt(0).SetBytes(ca.signer.signature[:32]), big.NewInt(0).SetBytes(ca.signer.signature[32:]))
+	return ok
+}
+
+func (ca *createAsset_T) count(cache *poolCache_T, index int) {
+	asset := &asset_T {
+		ca.name,
+		ca.symbol,
+		ca.decimals,
+		ca.totalSupply,
+		ca.price,
+		ca.blocks,
+		ca.blocks,
+	}
+
+	assetIdB := asset.hash()
+
+	assetId := fmt.Sprintf("%064x", assetIdB)
+	_, ok := cache.state.assets[assetId]
+	if ok {
+		print(log_warning, "Asset is already in")
+		deleteFromCacheTransactions(cache, index)
+		return
+	}
+
+	cache.state.assets[assetId] = asset
+
+	account, ok := cache.state.accounts[ca.from]
+	if !ok {
+		print(log_warning, "CA from is empty address")
+		deleteFromCacheTransactions(cache, index)
+		return
+	}
+
+	fee := ca.price * uint64(ca.blocks)
+	if account.balance < fee {
+		print(log_warning, "not enough minerals")
+		deleteFromCacheTransactions(cache, index)
+		return
+	}
+
+	cache.state.accounts[ca.from].balance -= fee
+	cache.state.accounts[ca.from].assets[assetId] = ca.totalSupply
 }
 
 func (ca *createAsset_T) String() string {
@@ -154,5 +286,5 @@ func (ca *createAsset_T) String() string {
 		"\tblocks: %d\n" +
 		"\tfrom: %s\n" +
 		"\tnonce: %d\n" +
-		"%s", ca.Name, ca.Symbol, ca.Decimals, ca.TotalSupply, ca.Price, ca.Blocks, ca.From, ca.Nonce, ca.Signer)
+		"%s", ca.name, ca.symbol, ca.decimals, ca.totalSupply, ca.price, ca.blocks, ca.from, ca.nonce, ca.signer)
 }
