@@ -66,7 +66,7 @@ func decodeTransfer(bs []byte) *transfer_T {
 }
 
 func (transfer *transfer_T) encodeWithoutSigner() []byte {
-	bs := make([]byte, transfer_length, transfer_length)
+	bs := make([]byte, transfer_signer_position, transfer_signer_position)
 	copy(bs[:transfer_to_position], []byte(transfer.from))
 	copy(bs[transfer_to_position:transfer_amount_position], []byte(transfer.to))
 	binary.LittleEndian.PutUint64(bs[transfer_amount_position:transfer_asset_id_position],transfer.amount)
@@ -115,6 +115,9 @@ func (transfer *transfer_T) validate() error {
 		return errors.New("The nonces are not match")
 	}
 
+	fmt.Printf("x: %064x\n", transfer.signer.x)
+	fmt.Printf("y: %064x\n", transfer.signer.y)
+
 	ok = transfer.verifySign()
 	if !ok {
 		return errors.New("Invalid signature")
@@ -125,8 +128,9 @@ func (transfer *transfer_T) validate() error {
 
 func (transfer *transfer_T) verifySign() bool {
 	publicKey := ecdsa.PublicKey{elliptic.P256(), transfer.signer.x, transfer.signer.y}
-	fmt.Println(publicKey)
+//	fmt.Println(publicKey)
 	txid := transfer.hash()
+	fmt.Printf("txid: %064x\n", txid)
 	ok := ecdsa.Verify(&publicKey, txid[:], big.NewInt(0).SetBytes(transfer.signer.signature[:32]), big.NewInt(0).SetBytes(transfer.signer.signature[32:]))
 	return ok
 }
