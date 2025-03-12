@@ -54,7 +54,7 @@ func decodeAccount(bs []byte) *account_T {
 	for i := 0; i < length; i++ {
 		start = end
 		end += 40
-		account.assets[hex.EncodeToString(bs[start:32])] = binary.LittleEndian.Uint64(bs[start + 32:end])
+		account.assets[hex.EncodeToString(bs[start:start + 32])] = binary.LittleEndian.Uint64(bs[start + 32:end])
 	}
 
 	start = end

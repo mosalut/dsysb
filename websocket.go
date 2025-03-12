@@ -130,6 +130,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			cache.transactions = append([]transaction_I{ coinbase }, cache.transactions...)
 			cache.count()
 			bs := cache.encode()
+			signatures = make([]string, 0, 511)
 
 			socketData := socketData_T { WS_ADD_BLOCK, bs }
 

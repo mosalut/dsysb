@@ -81,19 +81,24 @@ func (transfer *transfer_T) validate() error {
 		return errors.New("Transfer to self is not allowed")
 	}
 
-	for _, signature := range signatures {
-		s := fmt.Sprintf("%0128x", transfer.signer.signature)
-		if s == signature {
-			return errors.New(fmt.Sprintf("%064x", transfer.hash()) + " replay: " + s)
-		}
-		signatures = append(signatures, s)
+	s := fmt.Sprintf("%0128x", transfer.signer.signature)
+	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
+		return errors.New("Unsigned transaction")
 	}
-
-	state := getState()
-	assetId := fmt.Sprintf("%064x", transfer.assetId)
 
 	poolMutex.Lock()
 	defer poolMutex.Unlock()
+
+	// replay attack
+	for _, signature := range signatures {
+		if s == signature {
+			return errors.New("Replay attack: hash:" + fmt.Sprintf("%064x", transfer.hash()) + " signature: " + s)
+		}
+	}
+	signatures = append(signatures, s)
+
+	state := getState()
+	assetId := fmt.Sprintf("%064x", transfer.assetId)
 
 	if assetId != dsysbId {
 		_, ok := state.assets[assetId]
@@ -103,20 +108,16 @@ func (transfer *transfer_T) validate() error {
 		}
 	}
 
-	var nonce uint32
 	account, ok := state.accounts[transfer.from]
 	if !ok {
 		return errors.New("There's not the account id")
 	}
 
-	nonce = account.nonce
-	fmt.Println("nonces:", transfer.nonce, nonce)
+	nonce := account.nonce
+//	fmt.Println("nonces:", transfer.nonce, nonce)
 	if transfer.nonce - nonce != 1 {
 		return errors.New("The nonces are not match")
 	}
-
-	fmt.Printf("x: %064x\n", transfer.signer.x)
-	fmt.Printf("y: %064x\n", transfer.signer.y)
 
 	ok = transfer.verifySign()
 	if !ok {
@@ -128,9 +129,7 @@ func (transfer *transfer_T) validate() error {
 
 func (transfer *transfer_T) verifySign() bool {
 	publicKey := ecdsa.PublicKey{elliptic.P256(), transfer.signer.x, transfer.signer.y}
-//	fmt.Println(publicKey)
 	txid := transfer.hash()
-	fmt.Printf("txid: %064x\n", txid)
 	ok := ecdsa.Verify(&publicKey, txid[:], big.NewInt(0).SetBytes(transfer.signer.signature[:32]), big.NewInt(0).SetBytes(transfer.signer.signature[32:]))
 	return ok
 }
@@ -180,6 +179,8 @@ func (transfer *transfer_T) count(cache *poolCache_T, index int) {
 		}
 		accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
 	}
+
+	accountFrom.nonce = transfer.nonce
 }
 
 func (transfer *transfer_T) String() string {

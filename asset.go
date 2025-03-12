@@ -195,17 +195,21 @@ func decodeCreateAsset(bs []byte) *createAsset_T {
 }
 
 func (ca *createAsset_T) validate() error {
+	s := fmt.Sprintf("%0128x", ca.signer.signature)
+	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
+		return errors.New("Unsigned transaction")
+	}
+
 	poolMutex.Lock()
 	defer poolMutex.Unlock()
 
 	// replay attack
 	for _, signature := range signatures {
-		s := fmt.Sprintf("%0128x", ca.signer.signature)
 		if s == signature {
-			return errors.New(fmt.Sprintf("%064x", ca.hash()) + " replay: " + s)
+			return errors.New("Replay attack: hash:" + fmt.Sprintf("%064x", ca.hash()) + " signature: " + s)
 		}
-		signatures = append(signatures, s)
 	}
+	signatures = append(signatures, s)
 
 	var nonce uint32
 	state := getState()
@@ -272,8 +276,9 @@ func (ca *createAsset_T) count(cache *poolCache_T, index int) {
 		return
 	}
 
-	cache.state.accounts[ca.from].balance -= fee
-	cache.state.accounts[ca.from].assets[assetId] = ca.totalSupply
+	account.balance -= fee
+	account.assets[assetId] = ca.totalSupply
+	account.nonce = ca.nonce
 }
 
 func (ca *createAsset_T) String() string {

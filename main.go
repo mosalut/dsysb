@@ -47,6 +47,7 @@ func main() {
 	q2p.Set_connection_num(cmdFlag.cn)
 	peer.TimeSendLost = 5
 	peer.Timeout = 16
+	peer.LifeCycle = lifeCycle
 	peer.Successed = transportSuccessed
 	peer.Failed = transportFailed
 
