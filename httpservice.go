@@ -14,6 +14,8 @@ func runHttpServer(port string) {
 	http.HandleFunc("/blockchain", blockchainHandler)
 	http.HandleFunc("/block", blockHandler)
 	http.HandleFunc("/sendrawtransaction", sendRawTransactionHandler)
+	http.HandleFunc("/transaction", getTransactionHandler)
+
 	http.HandleFunc("/txpool", txPool)
 
 	server := http.Server {

@@ -29,35 +29,35 @@ const (
 // 	[140:148] - timestamp
 // 	[148:152] - nonce
 type blockHead_T struct {
-	PrevHash [36]byte `json:"prevHash"`
-	Hash [36]byte `json:"hash"`
-	StateRoot [32]byte `json:"stateRoot"`
-	TransactionRoot [32]byte `json:"transactionRoot"`
-	Bits [4]byte `json:"bits"`
-	Timestamp [8]byte `json:"timestamp"`
-	Nonce [4]byte `json:"nonce"`
+	prevHash [36]byte
+	hash [36]byte
+	stateRoot [32]byte
+	transactionRoot [32]byte
+	bits [4]byte
+	timestamp [8]byte
+	nonce [4]byte
 }
 
 func (head blockHead_T) String() string {
 	return "head:" +
-	"\n\tprev hash:" + hex.EncodeToString(head.PrevHash[:]) +
-	"\n\thash:" + hex.EncodeToString(head.Hash[:]) +
-	"\n\tstate root:" + hex.EncodeToString(head.StateRoot[:]) +
-	"\n\ttransaction root:" + hex.EncodeToString(head.TransactionRoot[:]) +
-	"\n\tbits:" + hex.EncodeToString(head.Bits[:]) +
-	"\n\ttimestamp:" + fmt.Sprintf("%d", binary.LittleEndian.Uint64(head.Timestamp[:])) +
-	"\n\tnonce:" + hex.EncodeToString(head.Nonce[:])
+	"\n\tprev hash:" + hex.EncodeToString(head.prevHash[:]) +
+	"\n\thash:" + hex.EncodeToString(head.hash[:]) +
+	"\n\tstate root:" + hex.EncodeToString(head.stateRoot[:]) +
+	"\n\ttransaction root:" + hex.EncodeToString(head.transactionRoot[:]) +
+	"\n\tbits:" + hex.EncodeToString(head.bits[:]) +
+	"\n\ttimestamp:" + fmt.Sprintf("%d", binary.LittleEndian.Uint64(head.timestamp[:])) +
+	"\n\tnonce:" + hex.EncodeToString(head.nonce[:])
 }
 
 func (head *blockHead_T) encode () []byte {
 	bs := make([]byte, bh_length, bh_length)
-	copy(bs[:bh_hash_position], head.PrevHash[:])
-	copy(bs[bh_hash_position:bh_state_root_position], head.Hash[:])
-	copy(bs[bh_state_root_position:bh_transaction_root_position], head.StateRoot[:])
-	copy(bs[bh_transaction_root_position:bh_bits_position], head.TransactionRoot[:])
-	copy(bs[bh_bits_position:bh_time_position], head.Bits[:])
-	copy(bs[bh_time_position:bh_nonce_position], head.Timestamp[:])
-	copy(bs[bh_nonce_position:], head.Nonce[:])
+	copy(bs[:bh_hash_position], head.prevHash[:])
+	copy(bs[bh_hash_position:bh_state_root_position], head.hash[:])
+	copy(bs[bh_state_root_position:bh_transaction_root_position], head.stateRoot[:])
+	copy(bs[bh_transaction_root_position:bh_bits_position], head.transactionRoot[:])
+	copy(bs[bh_bits_position:bh_time_position], head.bits[:])
+	copy(bs[bh_time_position:bh_nonce_position], head.timestamp[:])
+	copy(bs[bh_nonce_position:], head.nonce[:])
 
 	return bs
 }
@@ -75,35 +75,35 @@ func decodeBlockHead(bs []byte) *blockHead_T {
 }
 
 type blockBody_T struct {
-	Transactions txPool_T `json:"transactions"`
+	transactions txPool_T
 }
 
 func (body *blockBody_T) encode () []byte {
-	bs := body.Transactions.encode()
+	bs := body.transactions.encode()
 
 	return bs
 }
 
 func decodeBlockBody(bs []byte) *blockBody_T {
 	body := &blockBody_T{}
-	body.Transactions = decodeTxPool(bs)
+	body.transactions = decodeTxPool(bs)
 
 	return body
 }
 
 type block_T struct {
-	Head *blockHead_T `json:"head"`
-	Body *blockBody_T `json:"body"`
+	head *blockHead_T
+	body *blockBody_T
 }
 
 func (block *block_T) encode() []byte {
-	return append(block.Head.encode(), block.Body.encode()...)
+	return append(block.head.encode(), block.body.encode()...)
 }
 
 func decodeBlock(bs []byte) *block_T {
 	block := &block_T{}
-	block.Head = decodeBlockHead(bs[:bh_length])
-	block.Body = decodeBlockBody(bs[bh_length:])
+	block.head = decodeBlockHead(bs[:bh_length])
+	block.body = decodeBlockBody(bs[bh_length:])
 
 	return block
 }
@@ -129,54 +129,10 @@ func getBlock(hashBytes []byte) (*block_T, error) {
 	}
 
 	block := &block_T {}
-	block.Head = decodeBlockHead(blockBytes[:bh_length])
-	block.Body = decodeBlockBody(blockBytes[bh_length:])
+	block.head = decodeBlockHead(blockBytes[:bh_length])
+	block.body = decodeBlockBody(blockBytes[bh_length:])
 
 	return block, nil
-}
-
-func blockchainHandler(w http.ResponseWriter, req *http.Request) {
-	cors(w)
-
-	switch req.Method {
-	case http.MethodOptions:
-		return
-	case http.MethodGet:
-	default:
-		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
-		return
-	}
-
-	values := req.URL.Query()
-	n := values.Get("n")
-
-	number, err := strconv.Atoi(n)
-	if err != nil {
-		writeResult(w, responseResult_T{false, err.Error(), nil})
-		return
-	}
-
-	blockchain := make(blockchain_T, 0, number)
-	block, err := getHashBlock()
-	if err != nil {
-		writeResult(w, responseResult_T{false, err.Error(), nil})
-		return
-	}
-
-	for i := 0; i < number && block != nil; i++ {
-		blockchain = append(blockchain, block.Head)
-
-		if hex.EncodeToString(block.Head.PrevHash[:]) == genesisPrevHash {
-			break
-		}
-		block, err = getBlock(block.Head.PrevHash[32:])
-		if err != nil {
-			writeResult(w, responseResult_T{false, err.Error(), nil})
-			return
-		}
-	}
-
-	writeResult(w, responseResult_T{true, "ok", blockchain.encode()})
 }
 
 func blockHandler(w http.ResponseWriter, req *http.Request) {

@@ -3,6 +3,9 @@
 package main
 
 import (
+	"strconv"
+	"net/http"
+	"encoding/hex"
 	"log"
 )
 
@@ -34,4 +37,48 @@ func decodeBlockchain(bs []byte) blockchain_T {
 	}
 
 	return blockchain
+}
+
+func blockchainHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	n := values.Get("n")
+
+	number, err := strconv.Atoi(n)
+	if err != nil {
+		writeResult(w, responseResult_T{false, err.Error(), nil})
+		return
+	}
+
+	blockchain := make(blockchain_T, 0, number)
+	block, err := getHashBlock()
+	if err != nil {
+		writeResult(w, responseResult_T{false, err.Error(), nil})
+		return
+	}
+
+	for i := 0; i < number && block != nil; i++ {
+		blockchain = append(blockchain, block.head)
+
+		if hex.EncodeToString(block.head.prevHash[:]) == genesisPrevHash {
+			break
+		}
+		block, err = getBlock(block.head.prevHash[32:])
+		if err != nil {
+			writeResult(w, responseResult_T{false, err.Error(), nil})
+			return
+		}
+	}
+
+	writeResult(w, responseResult_T{true, "ok", blockchain.encode()})
 }

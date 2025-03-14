@@ -253,14 +253,14 @@ func (ca *createAsset_T) count(cache *poolCache_T, index int) {
 	assetIdB := asset.hash()
 
 	assetId := fmt.Sprintf("%064x", assetIdB)
+	fmt.Println("assetId:", assetId)
 	_, ok := cache.state.assets[assetId]
+	fmt.Println(ok)
 	if ok {
 		print(log_warning, "Asset is already in")
 		deleteFromCacheTransactions(cache, index)
 		return
 	}
-
-	cache.state.assets[assetId] = asset
 
 	account, ok := cache.state.accounts[ca.from]
 	if !ok {
@@ -275,6 +275,8 @@ func (ca *createAsset_T) count(cache *poolCache_T, index int) {
 		deleteFromCacheTransactions(cache, index)
 		return
 	}
+
+	cache.state.assets[assetId] = asset
 
 	account.balance -= fee
 	account.assets[assetId] = ca.totalSupply

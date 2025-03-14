@@ -108,7 +108,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 
 			batch := &leveldb.Batch{}
 			batch.Put([]byte("state"), wsAddBlockData.poolCache.state.encode())
-			batch.Put(block.Head.Hash[32:], block.encode())
+			batch.Put(block.head.hash[32:], block.encode())
 
 			if len(transactionPool) <= 511 {
 				transactionPool = make([]transaction_I, 0, 511)

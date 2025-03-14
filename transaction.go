@@ -3,9 +3,11 @@
 package main
 
 import (
+	"strconv"
 	"math/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"io"
 	"net"
 	"net/http"
@@ -122,6 +124,62 @@ func sendRawTransactionHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeResult(w, responseResult_T{true, "ok", nil})
+}
+
+func getTransactionHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	txid := values.Get("txid")
+	n := values.Get("number")
+	number, err := strconv.Atoi(n)
+	if err != nil {
+		writeResult(w, responseResult_T{false, err.Error(), nil})
+		return
+	}
+
+	block, err := getHashBlock()
+	if err != nil {
+		writeResult(w, responseResult_T{false, err.Error(), nil})
+		return
+	}
+
+	for _, tx := range block.body.transactions {
+		if txid == fmt.Sprintf("%064x", tx.hash()) {
+			writeResult(w, responseResult_T{true, "ok", tx.encode()})
+			return
+		}
+	}
+
+	for i := 0; i < number && block != nil; i++ {
+		if hex.EncodeToString(block.head.prevHash[:]) == genesisPrevHash {
+			break
+		}
+
+		block, err = getBlock(block.head.prevHash[32:])
+		if err != nil {
+			writeResult(w, responseResult_T{false, err.Error(), nil})
+			return
+		}
+
+		for _, tx := range block.body.transactions {
+			if txid == fmt.Sprintf("%064x", tx.hash()) {
+				writeResult(w, responseResult_T{true, "ok", tx.encode()})
+				return
+			}
+		}
+	}
+
+	writeResult(w, responseResult_T{false, "Not found the txid in the last " + n + " blocks", nil})
 }
 
 func poolToCache() *poolCache_T {
