@@ -13,6 +13,7 @@ const (
 	WS_STATE = iota
 	WS_UPDATE
 	WS_ADD_BLOCK
+	WS_ERR
 )
 
 type socketData_T struct {
@@ -34,6 +35,11 @@ func (wsAddBlockData *wsAddBlockData_T) encode() []byte {
 
 func decodeWsAddBlockData(bs []byte) *wsAddBlockData_T {
 	address := string(bs[:34])
+	if !validateAddress(address) {
+		print(log_error, "Wallet address format wrong")
+		return nil
+	}
+
 	blockHead := decodeBlockHead(bs[34:bh_length + 34])
 	poolCache := decodePoolCache(bs[34 + bh_length:])
 	wsAddBlockData := &wsAddBlockData_T{
@@ -93,14 +99,33 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			err = conn.WriteJSON(socketData)
 			if err != nil {
 				print(log_error, err)
-				return
+				continue
 			}
 
 			print(log_info, "ws_update sended")
 		case WS_ADD_BLOCK:
 			print(log_info, "new block")
+			if len(data.Body) < 34 {
+				print(log_error, "Data length wrong")
+				socketData := socketData_T { WS_ERR, []byte("Data length wrong") }
+				err := conn.WriteJSON(socketData)
+				if err != nil {
+					print(log_error, conn.RemoteAddr, err)
+					continue
+				}
+				continue
+			}
 
 			wsAddBlockData := decodeWsAddBlockData(data.Body)
+			if wsAddBlockData == nil {
+				socketData := socketData_T { WS_ERR, []byte("Wallet address format wrong") }
+				err := conn.WriteJSON(socketData)
+				if err != nil {
+					print(log_error, conn.RemoteAddr, err)
+					continue
+				}
+				continue
+			}
 
 			blockBody := &blockBody_T { wsAddBlockData.poolCache.transactions }
 			block := &block_T { wsAddBlockData.head, blockBody }

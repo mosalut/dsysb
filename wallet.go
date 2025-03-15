@@ -49,9 +49,13 @@ func checksum(payload []byte) []byte {
 
 func validateAddress(address string) bool {
 	pubKeyHash := base58.Decode(address)
-	actualChecksum := pubKeyHash[len(pubKeyHash) - addressChecksumLen:]
+	pubKeyHashLength := len(pubKeyHash)
+	if pubKeyHashLength != 25 {
+		return false
+	}
+	actualChecksum := pubKeyHash[pubKeyHashLength - addressChecksumLen:]
 	version := pubKeyHash[0]
-	pubKeyHash = pubKeyHash[1 : len(pubKeyHash) - addressChecksumLen]
+	pubKeyHash = pubKeyHash[1 : pubKeyHashLength - addressChecksumLen]
 	targetChecksum := checksum(append([]byte{version}, pubKeyHash...))
 
 	return bytes.Compare(actualChecksum, targetChecksum) == 0

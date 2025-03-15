@@ -78,7 +78,6 @@ func (cache *poolCache_T) encode() []byte {
 	bs = append(bs, []byte{0, 0, 0, 0}...)
 	binary.LittleEndian.PutUint32(bs[len(bs) - 4:], uint32(stateLength))
 
-	print(log_debug, bs)
 	return bs
 }
 
