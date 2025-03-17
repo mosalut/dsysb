@@ -10,13 +10,15 @@ import (
 )
 
 const (
-	coinbase_length = 42
+	coinbase_length = 46
 	coinbase_amount_position = 34
+	coinbase_nonce_position = 42
 )
 
 type coinbase_T struct {
 	to string
 	amount uint64
+	nonce uint32
 }
 
 func (tx *coinbase_T) hash() [32]byte {
@@ -30,7 +32,8 @@ func (coinbase *coinbase_T) getType() uint8 {
 func (coinbase *coinbase_T) encode() []byte {
 	bs := make([]byte, coinbase_length, coinbase_length)
 	copy(bs[:coinbase_amount_position], []byte(coinbase.to))
-	binary.LittleEndian.PutUint64(bs[coinbase_amount_position:], coinbase.amount)
+	binary.LittleEndian.PutUint64(bs[coinbase_amount_position:coinbase_nonce_position], coinbase.amount)
+	binary.LittleEndian.PutUint32(bs[coinbase_nonce_position:], coinbase.nonce)
 
 	return bs
 }
@@ -38,7 +41,8 @@ func (coinbase *coinbase_T) encode() []byte {
 func decodeCoinbase(bs []byte) *coinbase_T {
 	coinbase := &coinbase_T{}
 	coinbase.to = string(bs[:coinbase_amount_position])
-	coinbase.amount = binary.LittleEndian.Uint64(bs[coinbase_amount_position:])
+	coinbase.amount = binary.LittleEndian.Uint64(bs[coinbase_amount_position:coinbase_nonce_position])
+	coinbase.nonce = binary.LittleEndian.Uint32(bs[coinbase_nonce_position:])
 
 	return coinbase
 }
@@ -64,8 +68,11 @@ func (coinbase *coinbase_T) count(cache *poolCache_T, index int) {
 	}
 }
 
-func (coinbase *coinbase_T) String() string {
+func (tx *coinbase_T) String() string {
 	return fmt.Sprintf(
+		"\ttxid:\t%064x\n" +
+		"\ttype:\tcoinbase\n" +
 		"\tto: %s\n" +
-		"\tamount: %d", coinbase.to, coinbase.amount)
+		"\tamount: %d\n" +
+		"\tnonce: %d\n\n", tx.hash(), tx.to, tx.nonce, tx.amount)
 }

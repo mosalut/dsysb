@@ -4,14 +4,9 @@ package main
 
 import (
 	"strconv"
-	"math/rand"
-	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"io"
-	"net"
 	"net/http"
-	"time"
 	"fmt"
 )
 
@@ -54,6 +49,7 @@ func decodeRawTransaction(bs []byte) transaction_I {
 
 func sendRawTransaction(bs []byte) error {
 	transaction := decodeRawTransaction(bs)
+	txid := transaction.hash()
 
 	err := transaction.validate()
 	if err != nil {
@@ -64,36 +60,12 @@ func sendRawTransaction(bs []byte) error {
 	transactionPool = append(transactionPool, transaction)
 	poolMutex.Unlock()
 
-	originLength := 17 + len(bs)
-	origin := make([]byte, originLength, originLength)
-
-	timestamp := time.Now().UnixNano()
-	binary.LittleEndian.PutUint64(origin[:8], uint64(timestamp))
-
-	rNonce := rand.Uint64()
-	binary.LittleEndian.PutUint64(origin[8:16], rNonce)
-	origin[16] = p2p_transport_sendrawtransaction_event
-
-	copy(origin[17:], bs)
-
-	hash := sha256.Sum224(origin)
+	hash := makePostHash(txid[:])
 
 	data := append(hash[:], byte(p2p_transport_sendrawtransaction_event))
 	data = append(data, bs...)
 
-	for k, _ := range seedAddrs {
-		rAddr, err := net.ResolveUDPAddr("udp", k)
-		if err != nil {
-			continue
-			print(log_error, err)
-		}
-
-		_, err = peer.Transport(rAddr, data)
-		if err != nil {
-			continue
-			print(log_error, err)
-		}
-	}
+	broadcast(string(hash[:]), data)
 
 	return nil
 }

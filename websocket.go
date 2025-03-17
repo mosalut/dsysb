@@ -3,6 +3,7 @@
 package main
 
 import (
+	"math/rand"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -90,6 +91,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			coinbase := &coinbase_T {
 				address,
 				5e10,
+				rand.Uint32(),
 			}
 			cache.transactions = append([]transaction_I{ coinbase }, cache.transactions...)
 			cache.count()
@@ -151,6 +153,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			coinbase := &coinbase_T {
 				wsAddBlockData.address,
 				5e10,
+				rand.Uint32(),
 			}
 			cache.transactions = append([]transaction_I{ coinbase }, cache.transactions...)
 			cache.count()
