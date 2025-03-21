@@ -194,7 +194,7 @@ func decodeCreateAsset(bs []byte) *createAsset_T {
 	return ca
 }
 
-func (ca *createAsset_T) validate() error {
+func (ca *createAsset_T) validate(fromP2p bool) error {
 	s := fmt.Sprintf("%0128x", ca.signer.signature)
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")
@@ -239,7 +239,7 @@ func (ca *createAsset_T) verifySign() bool {
 	return ok
 }
 
-func (ca *createAsset_T) count(cache *poolCache_T, index int) {
+func (ca *createAsset_T) countOnNewBlock(state *state_T) error {
 	asset := &asset_T {
 		ca.name,
 		ca.symbol,
@@ -251,36 +251,30 @@ func (ca *createAsset_T) count(cache *poolCache_T, index int) {
 	}
 
 	assetIdB := asset.hash()
-
 	assetId := fmt.Sprintf("%064x", assetIdB)
-	fmt.Println("assetId:", assetId)
-	_, ok := cache.state.assets[assetId]
+	_, ok := state.assets[assetId]
 	fmt.Println(ok)
 	if ok {
-		print(log_warning, "Asset is already in")
-		deleteFromCacheTransactions(cache, index)
-		return
+		return errors.New("Asset is already in")
 	}
 
-	account, ok := cache.state.accounts[ca.from]
+	account, ok := state.accounts[ca.from]
 	if !ok {
-		print(log_warning, "CA from is empty address")
-		deleteFromCacheTransactions(cache, index)
-		return
+		return errors.New("CA from is empty address")
 	}
 
 	fee := ca.price * uint64(ca.blocks)
 	if account.balance < fee {
-		print(log_warning, "not enough minerals")
-		deleteFromCacheTransactions(cache, index)
-		return
+		return errors.New("not enough minerals")
 	}
 
-	cache.state.assets[assetId] = asset
+	state.assets[assetId] = asset
 
 	account.balance -= fee
 	account.assets[assetId] = ca.totalSupply
 	account.nonce = ca.nonce
+
+	return nil
 }
 
 func (ca *createAsset_T) String() string {

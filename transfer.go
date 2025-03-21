@@ -76,7 +76,7 @@ func (transfer *transfer_T) encodeWithoutSigner() []byte {
 	return bs
 }
 
-func (transfer *transfer_T) validate() error {
+func (transfer *transfer_T) validate(fromP2p bool) error {
 	if transfer.from == transfer.to {
 		return errors.New("Transfer to self is not allowed")
 	}
@@ -134,18 +134,16 @@ func (transfer *transfer_T) verifySign() bool {
 	return ok
 }
 
-func (transfer *transfer_T) count(cache *poolCache_T, index int) {
-	accountFrom, ok := cache.state.accounts[transfer.from]
+func (transfer *transfer_T) countOnNewBlock(state *state_T) error {
+	accountFrom, ok := state.accounts[transfer.from]
 	if !ok {
-		print(log_warning, "Transfer from is empty address")
-		deleteFromCacheTransactions(cache, index)
-		return
+		return errors.New("The address of transfer from is empty")
 	}
 
-	accountTo, ok := cache.state.accounts[transfer.to]
+	accountTo, ok := state.accounts[transfer.to]
 	if !ok {
-		cache.state.accounts[transfer.to] = &account_T{}
-		accountTo = cache.state.accounts[transfer.to]
+		state.accounts[transfer.to] = &account_T{}
+		accountTo = state.accounts[transfer.to]
 		accountTo.assets = make(map[string]uint64)
 	}
 
@@ -153,24 +151,18 @@ func (transfer *transfer_T) count(cache *poolCache_T, index int) {
 
 	if id == dsysbId {
 		if accountFrom.balance < transfer.amount {
-			print(log_warning, "not enough minerals")
-			deleteFromCacheTransactions(cache, index)
-			return
+			return errors.New("not enough minerals")
 		}
 
 		accountFrom.balance, accountTo.balance = accountFrom.balance - transfer.amount, accountTo.balance + transfer.amount
 	} else {
 		balance, ok := accountFrom.assets[id]
 		if !ok {
-			print(log_warning, "There is not this asset")
-			deleteFromCacheTransactions(cache, index)
-			return
+			return errors.New("There is not this asset")
 		}
 
 		if balance < transfer.amount {
-			print(log_warning, "not enough minerals")
-			deleteFromCacheTransactions(cache, index)
-			return
+			return errors.New("not enough minerals")
 		}
 
 		_, ok = accountTo.assets[id]
@@ -181,6 +173,8 @@ func (transfer *transfer_T) count(cache *poolCache_T, index int) {
 	}
 
 	accountFrom.nonce = transfer.nonce
+
+	return nil
 }
 
 func (transfer *transfer_T) String() string {

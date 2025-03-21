@@ -97,6 +97,7 @@ func decodePoolCache(bs []byte) *poolCache_T {
 	return cache
 }
 
+/*
 func (cache *poolCache_T) count() {
 	for k, transaction := range cache.transactions {
 		transaction.count(cache, k)
@@ -110,3 +111,4 @@ func deleteFromCacheTransactions(cache *poolCache_T, k int) {
 		cache.transactions = append(cache.transactions[:k], cache.transactions[k + 1:]...)
 	}
 }
+*/

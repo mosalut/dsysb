@@ -47,25 +47,35 @@ func decodeCoinbase(bs []byte) *coinbase_T {
 	return coinbase
 }
 
-func (coinbase *coinbase_T) validate() error {
-	return errors.New("illage type")
+func (coinbase *coinbase_T) validate(fromP2p bool) error {
+	if !fromP2p {
+		return errors.New("illage type")
+	}
+
+	if coinbase.amount != 5e10 {
+		return errors.New("Coinbase amount wrong")
+	}
+
+	return nil
 }
 
 func (coinbase *coinbase_T) verifySign() bool {
 	return true
 }
 
-func (coinbase *coinbase_T) count(cache *poolCache_T, index int) {
-	_, ok := cache.state.accounts[coinbase.to]
+func (coinbase *coinbase_T) countOnNewBlock(state *state_T) error {
+	_, ok := state.accounts[coinbase.to]
 	if !ok {
-		cache.state.accounts[coinbase.to] = &account_T {
+		state.accounts[coinbase.to] = &account_T {
 			coinbase.amount,
 			make(map[string]uint64),
 			0,
 		}
 	} else {
-		cache.state.accounts[coinbase.to].balance += coinbase.amount
+		state.accounts[coinbase.to].balance += coinbase.amount
 	}
+
+	return nil
 }
 
 func (tx *coinbase_T) String() string {

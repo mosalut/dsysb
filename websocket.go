@@ -3,8 +3,8 @@
 package main
 
 import (
-	"math/rand"
 	"net/http"
+	"fmt"
 
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -13,6 +13,7 @@ import (
 const (
 	WS_STATE = iota
 	WS_UPDATE
+	WS_MINED_BLOCK
 	WS_ADD_BLOCK
 	WS_ERR
 )
@@ -23,7 +24,6 @@ type socketData_T struct {
 }
 
 type wsAddBlockData_T struct {
-	address string // miner address
 	head *blockHead_T
 	poolCache *poolCache_T
 }
@@ -35,16 +35,9 @@ func (wsAddBlockData *wsAddBlockData_T) encode() []byte {
 }
 
 func decodeWsAddBlockData(bs []byte) *wsAddBlockData_T {
-	address := string(bs[:34])
-	if !validateAddress(address) {
-		print(log_error, "Wallet address format wrong")
-		return nil
-	}
-
-	blockHead := decodeBlockHead(bs[34:bh_length + 34])
-	poolCache := decodePoolCache(bs[34 + bh_length:])
+	blockHead := decodeBlockHead(bs[:bh_length])
+	poolCache := decodePoolCache(bs[bh_length:])
 	wsAddBlockData := &wsAddBlockData_T{
-		address,
 		blockHead,
 		poolCache,
 	}
@@ -85,16 +78,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		case WS_UPDATE:
 			print(log_info, "update")
 
-			address := string(data.Body)
-
 			cache := poolToCache()
-			coinbase := &coinbase_T {
-				address,
-				5e10,
-				rand.Uint32(),
-			}
-			cache.transactions = append([]transaction_I{ coinbase }, cache.transactions...)
-			cache.count()
 			bs := cache.encode()
 
 			socketData := socketData_T { WS_UPDATE, bs }
@@ -105,7 +89,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			print(log_info, "ws_update sended")
-		case WS_ADD_BLOCK:
+		case WS_MINED_BLOCK:
 			print(log_info, "new block")
 			if len(data.Body) < 34 {
 				print(log_error, "Data length wrong")
@@ -150,17 +134,10 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			cache := poolToCache()
-			coinbase := &coinbase_T {
-				wsAddBlockData.address,
-				5e10,
-				rand.Uint32(),
-			}
-			cache.transactions = append([]transaction_I{ coinbase }, cache.transactions...)
-			cache.count()
 			bs := cache.encode()
 			signatures = make([]string, 0, 511)
 
-			socketData := socketData_T { WS_ADD_BLOCK, bs }
+			socketData := socketData_T { WS_MINED_BLOCK, bs }
 
 			for conn, _ := range minerConns {
 				err = conn.WriteJSON(socketData)
@@ -170,6 +147,14 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				print(log_info, conn.RemoteAddr(), "ws_state sended")
 			}
+
+			blockData := block.encode()
+			hash := makePostHash(blockData)
+			transportData := append(hash[:], p2p_add_block_event)
+			transportData = append(transportData, blockData...)
+			postId := fmt.Sprintf("%058x", hash[:])
+			broadcast(postId, transportData)
+			fmt.Println("sending:", postId)
 		}
 	}
 }

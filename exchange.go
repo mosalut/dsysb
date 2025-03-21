@@ -21,8 +21,8 @@ func (ex *exchange_T) hash() [32]byte {
 	length := transfer_signer_position * 2
 	bs := make([]byte, length, length)
 	copy(bs[:transfer_signer_position], ex[0].encodeWithoutSigner())
-	copy(bs[transfer_signer_position:], ex[0].encodeWithoutSigner())
-	return sha256.Sum256(ex.encode())
+	copy(bs[transfer_signer_position:], ex[1].encodeWithoutSigner())
+	return sha256.Sum256(bs)
 }
 
 func (ex *exchange_T) getType() uint8 {
@@ -45,7 +45,7 @@ func decodeExchange(bs []byte) *exchange_T {
 	return ex
 }
 
-func (ex *exchange_T) validate() error {
+func (ex *exchange_T) validate(fromP2p bool) error {
 	if ex[0].from != ex[1].to || ex[0].to != ex[1].from {
 		return errors.New("Exchange address not match")
 	}
@@ -85,15 +85,14 @@ func (ex *exchange_T) validate() error {
 		}
 
 		nonce = account.nonce
-	//	fmt.Println("nonces:", transfer.Nonce, nonce)
 		if transfer.nonce - nonce != 1 {
 			return errors.New("The nonces are not match")
 		}
+	}
 
-		ok = transfer.verifySign()
-		if !ok {
-			return errors.New("Invalid signature")
-		}
+	ok := ex.verifySign()
+	if !ok {
+		return errors.New("Invalid signature")
 	}
 
 	return nil
@@ -102,10 +101,10 @@ func (ex *exchange_T) validate() error {
 func (ex *exchange_T) verifySign() bool {
 	for _, transfer := range ex {
 		publicKey := ecdsa.PublicKey{elliptic.P256(), transfer.signer.x, transfer.signer.y}
-		fmt.Println(publicKey)
 		txid := ex.hash()
 		ok := ecdsa.Verify(&publicKey, txid[:], big.NewInt(0).SetBytes(transfer.signer.signature[:32]), big.NewInt(0).SetBytes(transfer.signer.signature[32:]))
 		if !ok {
+			print(log_info, "Invalid signature")
 			return false
 		}
 	}
@@ -113,19 +112,17 @@ func (ex *exchange_T) verifySign() bool {
 	return true
 }
 
-func (ex *exchange_T) count(cache *poolCache_T, index int) {
+func (ex *exchange_T) countOnNewBlock(state *state_T) error {
 	for _, transfer := range ex {
-		accountFrom, ok := cache.state.accounts[transfer.from]
+		accountFrom, ok := state.accounts[transfer.from]
 		if !ok {
-			print(log_warning, "Transfer from is empty address")
-			deleteFromCacheTransactions(cache, index)
-			return
+			return errors.New("The address of transfer from is empty")
 		}
 
-		accountTo, ok := cache.state.accounts[transfer.to]
+		accountTo, ok := state.accounts[transfer.to]
 		if !ok {
-			cache.state.accounts[transfer.to] = &account_T{}
-			accountTo = cache.state.accounts[transfer.to]
+			state.accounts[transfer.to] = &account_T{}
+			accountTo = state.accounts[transfer.to]
 			accountTo.assets = make(map[string]uint64)
 		}
 
@@ -133,24 +130,18 @@ func (ex *exchange_T) count(cache *poolCache_T, index int) {
 
 		if id == dsysbId {
 			if accountFrom.balance < transfer.amount {
-				print(log_warning, "not enough minerals")
-				deleteFromCacheTransactions(cache, index)
-				return
+				return errors.New("not enough minerals")
 			}
 
 			accountFrom.balance, accountTo.balance = accountFrom.balance - transfer.amount, accountTo.balance + transfer.amount
 		} else {
 			balance, ok := accountFrom.assets[id]
 			if !ok {
-				print(log_warning, "There is not this asset")
-				deleteFromCacheTransactions(cache, index)
-				return
+				return errors.New("There is not this asset")
 			}
 
 			if balance < transfer.amount {
-				print(log_warning, "not enough minerals")
-				deleteFromCacheTransactions(cache, index)
-				return
+				return errors.New("not enough minerals")
 			}
 
 			_, ok = accountTo.assets[id]
@@ -160,6 +151,8 @@ func (ex *exchange_T) count(cache *poolCache_T, index int) {
 			accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
 		}
 	}
+
+	return nil
 }
 
 func (ex *exchange_T) String() string {

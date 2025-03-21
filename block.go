@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"net/http"
 	"fmt"
+
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 const (
@@ -133,6 +135,32 @@ func getBlock(hashBytes []byte) (*block_T, error) {
 	block.body = decodeBlockBody(blockBytes[bh_length:])
 
 	return block, nil
+}
+
+func (block *block_T)Append(state *state_T) error {
+	var err error
+	for _, tx := range block.body.transactions {
+		err = tx.validate(true)
+		if err != nil{
+			return err
+		}
+		err = tx.countOnNewBlock(state)
+		if err != nil {
+			return err
+		}
+	}
+
+	copy(state.prevHash[:], block.head.hash[:])
+	batch := &leveldb.Batch{}
+	batch.Put([]byte("state"), state.encode())
+	batch.Put(block.head.hash[32:], block.encode())
+
+	err = chainDB.Write(batch, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func blockHandler(w http.ResponseWriter, req *http.Request) {

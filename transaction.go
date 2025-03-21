@@ -21,9 +21,9 @@ type transaction_I interface {
 	hash() [32]byte
 	getType() uint8
 	encode() []byte
-	validate() error
+	validate(bool) error
 	verifySign() bool
-	count(*poolCache_T, int)
+	countOnNewBlock(*state_T) error
 	String() string
 }
 
@@ -51,7 +51,7 @@ func sendRawTransaction(bs []byte) error {
 	transaction := decodeRawTransaction(bs)
 	txid := transaction.hash()
 
-	err := transaction.validate()
+	err := transaction.validate(false)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,8 @@ func sendRawTransaction(bs []byte) error {
 	data := append(hash[:], byte(p2p_transport_sendrawtransaction_event))
 	data = append(data, bs...)
 
-	broadcast(string(hash[:]), data)
+	postId := fmt.Sprintf("%056x", hash[:])
+	broadcast(postId, data)
 
 	return nil
 }

@@ -69,5 +69,5 @@ func readFlags(cmdFlag *cmdFlag_T) {
 	flag.StringVar(&cmdFlag.remoteHost, "remote_host", "", "Remote host address")
 	flag.IntVar(&cmdFlag.cn, "cn", 32, "The max p2p connections")
 	flag.StringVar(&cmdFlag.httpPort, "http_port", "20000", "HTTP run on")
-	flag.BoolVar(&cmdFlag.logFile, "log_file", true, "Write log to file")
+	flag.BoolVar(&cmdFlag.logFile, "log_file", false, "Write log to file")
 }
