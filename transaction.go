@@ -60,13 +60,7 @@ func sendRawTransaction(bs []byte) error {
 	transactionPool = append(transactionPool, transaction)
 	poolMutex.Unlock()
 
-	hash := makePostHash(txid[:])
-
-	data := append(hash[:], byte(p2p_transport_sendrawtransaction_event))
-	data = append(data, bs...)
-
-	postId := fmt.Sprintf("%056x", hash[:])
-	broadcast(postId, data)
+	broadcast(p2p_transport_sendrawtransaction_event, txid[:])
 
 	return nil
 }

@@ -4,6 +4,7 @@ package main
 
 import (
 	"strconv"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"net/http"
@@ -74,6 +75,18 @@ func decodeBlockHead(bs []byte) *blockHead_T {
 		[8]byte(bs[bh_time_position:bh_nonce_position]),
 		[4]byte(bs[bh_nonce_position:]),
 	}
+}
+
+func (head *blockHead_T) hashing() [32]byte {
+	bs := make([]byte, 116, 116)
+	copy(bs[:36], head.prevHash[:])
+	copy(bs[36:68], head.stateRoot[:])
+	copy(bs[68:100], head.transactionRoot[:])
+	copy(bs[100:104], head.bits[:])
+	copy(bs[104:112], head.timestamp[:])
+	copy(bs[112:], head.nonce[:])
+
+	return sha256.Sum256(bs)
 }
 
 type blockBody_T struct {
@@ -152,6 +165,7 @@ func (block *block_T)Append(state *state_T) error {
 
 	copy(state.prevHash[:], block.head.hash[:])
 	batch := &leveldb.Batch{}
+	fmt.Println("index:", block.head.hash[32:])
 	batch.Put([]byte("state"), state.encode())
 	batch.Put(block.head.hash[32:], block.encode())
 

@@ -4,7 +4,6 @@ package main
 
 import (
 	"net/http"
-	"fmt"
 
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -149,12 +148,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			blockData := block.encode()
-			hash := makePostHash(blockData)
-			transportData := append(hash[:], p2p_add_block_event)
-			transportData = append(transportData, blockData...)
-			postId := fmt.Sprintf("%058x", hash[:])
-			broadcast(postId, transportData)
-			fmt.Println("sending:", postId)
+			broadcast(p2p_add_block_event, blockData)
 		}
 	}
 }

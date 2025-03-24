@@ -18,6 +18,7 @@ const (
 	p2p_post_index_event = iota
 	p2p_transport_sendrawtransaction_event
 	p2p_add_block_event
+	p2p_get_block_hashes_event
 	p2p_debug
 )
 
@@ -71,11 +72,8 @@ func deleteReceivedTransportId(postId string) {
 
 func postDebug() {
 	hi := []byte("hihihihi")
-	hash := makePostHash(hi)
-	data := append(hash[:], byte(p2p_debug))
-	data = append(data, hi...)
 
-	broadcast(fmt.Sprintf("%056x", hash[:]), data)
+	broadcast(p2p_debug, hi)
 }
 
 func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body []byte) {
@@ -112,13 +110,30 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		transactionPool = append(transactionPool, tx)
 		poolMutex.Unlock()
 	case p2p_add_block_event:
+		block := decodeBlock(body[29:])
+
+		blockHash32 := fmt.Sprintf("%064x", block.head.hashing())
+		print(log_debug, "hash32:")
+		print(log_debug, blockHash32)
+		print(log_debug, fmt.Sprintf("%072x", block.head.hash))
+		if blockHash32 != fmt.Sprintf("%064x", block.head.hash[:32]) {
+			print(log_warning, "p2p_add_block_event: Block hash32 not match")
+			return
+		}
+
+		blockIndex := binary.LittleEndian.Uint32(block.head.hash[32:])
+		blockPrevIndex := binary.LittleEndian.Uint32(block.head.prevHash[32:])
+
+		if blockIndex - blockPrevIndex != 1 {
+			print(log_warning, "p2p_add_block_event: Block index not match")
+			return
+		}
+
 		state := getState()
 		statePrevHash := fmt.Sprintf("%072x", state.prevHash)
-	//	print(log_info, "prev hash", statePrevHash)
-		block := decodeBlock(body[29:])
 		blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
-	//	print(log_info, "prev hash", blockPrevHash)
-
+		print(log_debug, "statePrevHash:", statePrevHash)
+		print(log_debug, "blockPrevHash:", blockPrevHash)
 		if statePrevHash == blockPrevHash {
 			err := block.Append(state)
 			if err != nil {
@@ -126,11 +141,27 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 				return
 			}
 		}
+
+		statePrevIndex := binary.LittleEndian.Uint32(state.prevHash[32:])
+		if statePrevIndex > blockPrevIndex {
+			print(log_warning, "p2p_add_block_event: Get a lower block.")
+			return
+		}
+
+		print(log_debug, "Block synchronization.")
+		err := transport(rAddr, p2p_get_block_hashes_event, state.prevHash[:])
+		if err != nil {
+			print(log_error, err)
+			return
+		}
+	case p2p_get_block_hashes_event:
+		print(log_info, "p2p_get_block_hashes_event:")
+		print(log_debug, "state prev hash", fmt.Sprintf("%x\n", body[29:]))
 	case p2p_debug:
 		postId := fmt.Sprintf("%056x", body[:28])
 		print(log_debug, "postId:", postId)
 		print(log_debug, "hi:", string(body[29:]))
-		broadcast(postId, body)
+		broadcast(p2p_debug, body)
 	}
 }
 
@@ -159,7 +190,12 @@ func peerHandler(w http.ResponseWriter, req *http.Request) {
 	writeResult(w, responseResult_T{true, "ok", jsonData})
 }
 
-func broadcast(postId string, data []byte) {
+func broadcast(event uint8, data []byte) {
+	hash := makePostHash(data)
+	bs := append(hash[:], byte(event))
+	bs = append(bs, data...)
+	postId := fmt.Sprintf("%056x", hash[:])
+
 	fmt.Println("remote seeds:", peer.RemoteSeeds)
 	addReceivedTransportId(postId, peer.Conn.LocalAddr().String())
 	for k, _ := range peer.RemoteSeeds {
@@ -169,10 +205,25 @@ func broadcast(postId string, data []byte) {
 			continue
 		}
 
-		_, err = peer.Transport(rAddr, data)
+		_, err = peer.Transport(rAddr, bs)
 		if err != nil {
 			print(log_error, err)
 			continue
 		}
 	}
+}
+
+func transport(rAddr *net.UDPAddr, event uint8, data []byte) error {
+	hash := makePostHash(data)
+	bs := append(hash[:], byte(event))
+	bs = append(bs, data...)
+	postId := fmt.Sprintf("%056x", hash[:])
+	addReceivedTransportId(postId, peer.Conn.LocalAddr().String())
+
+	_, err := peer.Transport(rAddr, bs)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
