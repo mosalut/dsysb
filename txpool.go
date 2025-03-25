@@ -5,7 +5,6 @@ package main
 import (
 	"sync"
 	"encoding/binary"
-	"fmt"
 )
 
 var lenTypeM = map[int]uint8{
@@ -84,7 +83,6 @@ func (cache *poolCache_T) encode() []byte {
 func decodePoolCache(bs []byte) *poolCache_T {
 	cache := &poolCache_T{}
 
-	fmt.Println(bs)
 	length := len(bs)
 	start := length - 4
 	stateLength := int(binary.LittleEndian.Uint32(bs[start:]))

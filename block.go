@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"net/http"
+	"errors"
 	"fmt"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -22,6 +23,10 @@ const (
 	bh_time_position = 140
 	bh_nonce_position = 148
 )
+
+var ErrBlockIdNotMatch = errors.New("block hash and index are not match.")
+var ErrBlockHashFormat = errors.New("invalid block hash format.")
+var ErrPrevHashNotMatch = errors.New("state prev hash and block prev hash are not match.")
 
 // Head:
 // 	[:36] - prev hash
@@ -136,10 +141,28 @@ func getHashBlock() (*block_T, error) {
 	return decodeBlock(blockBytes), nil
 }
 
+func getBlockByHash(hash []byte) (*block_T, error) {
+	if len(hash) != 36 {
+		return nil, ErrBlockHashFormat
+	}
+
+	block, err := getBlock(hash[32:])
+	if err != nil {
+		return nil, err
+	}
+
+	hash0 := fmt.Sprintf("%x", hash)
+	hash1 := fmt.Sprintf("%x", block.head.hash)
+	if hash0 != hash1 {
+		return nil, ErrBlockIdNotMatch
+	}
+
+	return block, nil
+}
+
 func getBlock(hashBytes []byte) (*block_T, error) {
 	blockBytes, err := chainDB.Get(hashBytes, nil)
 	if err != nil {
-		print(log_error, err)
 		return nil, err
 	}
 
@@ -150,7 +173,15 @@ func getBlock(hashBytes []byte) (*block_T, error) {
 	return block, nil
 }
 
-func (block *block_T)Append(state *state_T) error {
+func (block *block_T)Append() error {
+	state := getState()
+	statePrevHash := fmt.Sprintf("%072x", state.prevHash)
+	blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
+
+	if statePrevHash != blockPrevHash {
+		return ErrPrevHashNotMatch
+	}
+
 	var err error
 	for _, tx := range block.body.transactions {
 		err = tx.validate(true)

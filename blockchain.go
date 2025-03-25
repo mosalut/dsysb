@@ -4,10 +4,19 @@ package main
 
 import (
 	"strconv"
+	"net"
 	"net/http"
 	"encoding/hex"
 	"log"
 )
+
+type blockchainSync_T struct {
+	rAddr *net.UDPAddr
+	targetIndex uint32
+	synchronizing bool
+}
+
+var blockchainSync blockchainSync_T
 
 type blockchain_T []*blockHead_T
 
