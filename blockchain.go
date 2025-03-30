@@ -16,7 +16,19 @@ type blockchainSync_T struct {
 	synchronizing bool
 }
 
+func (chainSync *blockchainSync_T) doing (rAddr *net.UDPAddr) {
+	blockchainSync.rAddr = rAddr
+	blockchainSync.synchronizing = true
+}
+
+func (chainSync *blockchainSync_T) over () {
+	blockchainSync.rAddr = nil
+	blockchainSync.targetIndex = 0
+	blockchainSync.synchronizing = false
+}
+
 var blockchainSync blockchainSync_T
+// var batch = &leveldb.Batch{}
 
 type blockchain_T []*blockHead_T
 
@@ -47,6 +59,14 @@ func decodeBlockchain(bs []byte) blockchain_T {
 
 	return blockchain
 }
+
+/*
+func deleteUntill(state *state_T, targetIndex uint32) error {
+	for index := binary.LittleEndian.Uint32(state.prevHash[32:]); index > targetIndex; index-- {
+
+	}
+}
+*/
 
 func blockchainHandler(w http.ResponseWriter, req *http.Request) {
 	cors(w)

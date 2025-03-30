@@ -127,7 +127,12 @@ func listAssetsHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	state := getState()
+	state, err := getState()
+	if err != nil {
+		print(log_error, err)
+		writeResult(w, responseResult_T{false, "dsysb inner error", nil})
+		return
+	}
 
 	writeResult(w, responseResult_T{true, "ok", state.assets.encode()})
 }
@@ -212,7 +217,11 @@ func (ca *createAsset_T) validate(fromP2p bool) error {
 	signatures = append(signatures, s)
 
 	var nonce uint32
-	state := getState()
+	state, err := getState()
+	if err != nil {
+		return err
+	}
+
 	account, ok := state.accounts[ca.from]
 	if ok {
 		nonce = account.nonce

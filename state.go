@@ -7,6 +7,8 @@ import (
 	"encoding/binary"
 	"net/http"
 	"log"
+
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 const dsysbId = "0000000000000000000000000000000000000000000000000000000000000000"
@@ -109,16 +111,42 @@ func (state *state_T)hash() [32]byte {
 	return sha256.Sum256(state.encode())
 }
 
-func getState() *state_T {
-	bs, err := chainDB.Get([]byte("state"), nil)
+func getIndex() (uint32, error) {
+	indexB, err := chainDB.Get([]byte("index"), nil)
 	if err != nil {
-		print(log_error, err, "state")
-		log.Fatal(err, "`state` data has been broken.")
+		return 0, err
 	}
 
-	return decodeState(bs)
+	index := binary.LittleEndian.Uint32(indexB)
+
+	return index, err
 }
 
+func getState() (*state_T, error) {
+	indexB, err := chainDB.Get([]byte("index"), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	index := binary.LittleEndian.Uint32(indexB)
+
+	if index == 0 {
+		state := &state_T{}
+		state.bits = binary.LittleEndian.Uint32(difficult_1_target[:])
+		state.assets = make(assetPool_T)
+		state.accounts = make(map[string]*account_T)
+		return state, nil
+	}
+
+	block, err := getBlock(indexB)
+	if err != nil {
+		return nil, err
+	}
+
+	return block.state, nil
+}
+
+/*
 func (state *state_T)update() error {
 	err := chainDB.Put([]byte("state"), state.encode(), nil)
 	if err != nil {
@@ -127,15 +155,19 @@ func (state *state_T)update() error {
 
 	return nil
 }
+*/
 
 func initState() {
-	_, err := chainDB.Get([]byte("state"), nil)
+	_, err := chainDB.Get([]byte("index"), nil)
+	if err == leveldb.ErrNotFound {
+		errx := chainDB.Put([]byte("index"), []byte{0, 0, 0, 0}, nil)
+		if errx != nil {
+			log.Fatal(errx)
+		}
+		return
+	}
+
 	if err != nil {
-		state := &state_T{}
-		state.bits = binary.LittleEndian.Uint32(difficult_1_target[:])
-		state.assets = make(assetPool_T)
-		state.accounts = make(map[string]*account_T)
-		err := state.update()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -154,7 +186,12 @@ func stateHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	state := getState()
+	state, err := getState()
+	if err != nil {
+		print(log_error, err)
+		writeResult(w, responseResult_T{false, "dsysb inner error", nil})
+		return
+	}
 
 	stateBytes := state.encode()
 

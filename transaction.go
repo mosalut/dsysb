@@ -149,20 +149,23 @@ func getTransactionHandler(w http.ResponseWriter, req *http.Request) {
 	writeResult(w, responseResult_T{false, "Not found the txid in the last " + n + " blocks", nil})
 }
 
-func poolToCache() *poolCache_T {
-	state := getState()
+func poolToCache() (*poolCache_T, error) {
+	state, err := getState()
+	if err != nil {
+		return nil, err
+	}
 
 	if len(transactionPool) <= 511 {
 		return &poolCache_T {
 			state,
 			transactionPool,
-		}
+		}, nil
 	}
 
 	return &poolCache_T {
 		state,
 		transactionPool[:511],
-	}
+	}, nil
 }
 
 func txPool(w http.ResponseWriter, req *http.Request) {
@@ -177,7 +180,6 @@ func txPool(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fmt.Println(transactionPool)
 	bs := transactionPool.encode()
 
 	writeResult(w, responseResult_T{true, "ok", bs})

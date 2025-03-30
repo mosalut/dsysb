@@ -50,7 +50,10 @@ func (ex *exchange_T) validate(fromP2p bool) error {
 		return errors.New("Exchange address not match")
 	}
 
-	state := getState()
+	state, err := getState()
+	if err != nil {
+		return err
+	}
 
 	poolMutex.Lock()
 	defer poolMutex.Unlock()

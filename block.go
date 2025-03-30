@@ -114,16 +114,28 @@ func decodeBlockBody(bs []byte) *blockBody_T {
 type block_T struct {
 	head *blockHead_T
 	body *blockBody_T
+	state *state_T
+	stateLength uint32
 }
 
 func (block *block_T) encode() []byte {
-	return append(block.head.encode(), block.body.encode()...)
+	bs := append(block.head.encode(), block.body.encode()...)
+	statePosition := make([]byte, 4, 4)
+	binary.LittleEndian.PutUint32(statePosition, uint32(len(bs)))
+	bs = append(bs, block.state.encode()...)
+	bs = append(bs, statePosition...)
+
+	return bs
 }
 
 func decodeBlock(bs []byte) *block_T {
+	length := len(bs)
+	statePosition := binary.LittleEndian.Uint32(bs[length - 4:length])
 	block := &block_T{}
 	block.head = decodeBlockHead(bs[:bh_length])
-	block.body = decodeBlockBody(bs[bh_length:])
+	block.body = decodeBlockBody(bs[bh_length:int(statePosition)])
+	block.state = decodeState(bs[int(statePosition):length - 4])
+	block.stateLength = binary.LittleEndian.Uint32(bs[length - 4:])
 
 	return block
 }
@@ -131,14 +143,17 @@ func decodeBlock(bs []byte) *block_T {
 const genesisPrevHash = "000000000000000000000000000000000000000000000000000000000000000000000000" // [36]byte{}
 
 func getHashBlock() (*block_T, error) {
-	state := getState()
-	blockBytes, err := chainDB.Get(state.prevHash[32:], nil)
+	indexB, err := chainDB.Get([]byte("index"), nil)
 	if err != nil {
-		print(log_error, err, fmt.Sprintf("%072x", state.prevHash))
 		return nil, err
 	}
 
-	return decodeBlock(blockBytes), nil
+	block, err := getBlock(indexB)
+	if err != nil {
+		return nil, err
+	}
+
+	return block, nil
 }
 
 func getBlockByHash(hash []byte) (*block_T, error) {
@@ -166,15 +181,22 @@ func getBlock(hashBytes []byte) (*block_T, error) {
 		return nil, err
 	}
 
+	length := len(blockBytes)
+	statePosition := binary.LittleEndian.Uint32(blockBytes[length - 4:length])
+
 	block := &block_T {}
 	block.head = decodeBlockHead(blockBytes[:bh_length])
-	block.body = decodeBlockBody(blockBytes[bh_length:])
+	block.body = decodeBlockBody(blockBytes[bh_length:int(statePosition)])
+	block.state = decodeState(blockBytes[int(statePosition):length - 4])
 
 	return block, nil
 }
 
 func (block *block_T)Append() error {
-	state := getState()
+	state, err := getState()
+	if err != nil {
+		return err
+	}
 	statePrevHash := fmt.Sprintf("%072x", state.prevHash)
 	blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
 
@@ -182,7 +204,6 @@ func (block *block_T)Append() error {
 		return ErrPrevHashNotMatch
 	}
 
-	var err error
 	for _, tx := range block.body.transactions {
 		err = tx.validate(true)
 		if err != nil{
@@ -196,8 +217,7 @@ func (block *block_T)Append() error {
 
 	copy(state.prevHash[:], block.head.hash[:])
 	batch := &leveldb.Batch{}
-	fmt.Println("index:", block.head.hash[32:])
-	batch.Put([]byte("state"), state.encode())
+	batch.Put([]byte("index"), block.head.hash[32:])
 	batch.Put(block.head.hash[32:], block.encode())
 
 	err = chainDB.Write(batch, nil)

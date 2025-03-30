@@ -77,7 +77,11 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		case WS_UPDATE:
 			print(log_info, "update")
 
-			cache := poolToCache()
+			cache, err := poolToCache()
+			if err != nil {
+				print(log_error, err)
+				continue
+			}
 			bs := cache.encode()
 
 			socketData := socketData_T { WS_UPDATE, bs }
@@ -113,11 +117,13 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			blockBody := &blockBody_T { wsAddBlockData.poolCache.transactions }
-			block := &block_T { wsAddBlockData.head, blockBody }
+			indexLength := bh_length + len(blockBody.encode())
+			block := &block_T { wsAddBlockData.head, blockBody, wsAddBlockData.poolCache.state, uint32(indexLength)}
+
 			// TODO add block validation
 
 			batch := &leveldb.Batch{}
-			batch.Put([]byte("state"), wsAddBlockData.poolCache.state.encode())
+			batch.Put([]byte("index"), block.head.hash[32:])
 			batch.Put(block.head.hash[32:], block.encode())
 
 			if len(transactionPool) <= 511 {
@@ -132,7 +138,12 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			cache := poolToCache()
+			cache, err := poolToCache()
+			if err != nil {
+				print(log_error, err)
+				return
+			}
+
 			bs := cache.encode()
 			signatures = make([]string, 0, 511)
 

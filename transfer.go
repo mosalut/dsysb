@@ -97,7 +97,11 @@ func (transfer *transfer_T) validate(fromP2p bool) error {
 	}
 	signatures = append(signatures, s)
 
-	state := getState()
+	state, err := getState()
+	if err != nil {
+		return err
+	}
+
 	assetId := fmt.Sprintf("%064x", transfer.assetId)
 
 	if assetId != dsysbId {

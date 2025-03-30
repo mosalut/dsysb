@@ -89,8 +89,8 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 	}
 
 	postId := fmt.Sprintf("%056x", body[:28])
-	fmt.Println(postId)
-	fmt.Println(receivedTransportIds)
+//	fmt.Println(postId)
+//	fmt.Println(receivedTransportIds)
 	event := uint8(body[28])
 	receivedTransportIdsMutex.Lock()
 	_, ok := receivedTransportIds[postId]
@@ -101,7 +101,6 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 
 	addReceivedTransportId(postId, rAddr.String())
 
-	fmt.Println("inner event:", event)
 	switch event {
 	case p2p_transport_sendrawtransaction_event:
 		tx := decodeRawTransaction(body[29:])
@@ -115,10 +114,18 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		transactionPool = append(transactionPool, tx)
 		poolMutex.Unlock()
 	case p2p_add_block_event:
+		if blockchainSync.synchronizing {
+			print(log_warning, "p2p_add_block_event: adding or synchronizing")
+			return
+		}
+
+		blockchainSync.doing(rAddr)
+
 		block := decodeBlock(body[29:])
 
 		blockHash32 := fmt.Sprintf("%064x", block.head.hashing())
 		if blockHash32 != fmt.Sprintf("%064x", block.head.hash[:32]) {
+			blockchainSync.over()
 			print(log_warning, "p2p_add_block_event: Block hash32 not match")
 			return
 		}
@@ -127,45 +134,56 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		blockPrevIndex := binary.LittleEndian.Uint32(block.head.prevHash[32:])
 
 		if blockIndex - blockPrevIndex != 1 {
+			blockchainSync.over()
 			print(log_error, "Remote block's index and prev index are not match")
 			return
 		}
 
-		state := getState()
+		state, err := getState()
+		if err != nil {
+			blockchainSync.over()
+			print(log_error, err)
+			return
+		}
+
 		statePrevHash := fmt.Sprintf("%072x", state.prevHash)
 		blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
 
 		statePrevIndex := binary.LittleEndian.Uint32(state.prevHash[32:])
 		if statePrevIndex > blockPrevIndex {
+			blockchainSync.over()
 			print(log_warning, "p2p_add_block_event: Get a lower block.")
 			return
 		} else if statePrevIndex == blockPrevIndex {
 			if statePrevHash != blockPrevHash {
 				prevBlock, err := getBlockByHash(state.prevHash[:])
 				if err != nil {
+					blockchainSync.over()
 					print(log_error, err)
 					return
 				}
 
+				blockchainSync.targetIndex = blockIndex
 				err = transport(rAddr, p2p_fork_point_event, prevBlock.head.prevHash[:])
 				if err != nil {
+					blockchainSync.over()
 					print(log_error, err)
 					return
 				}
 			} else {
 				err := block.Append()
 				if err != nil {
+					blockchainSync.over()
 					print(log_error, err)
 					return
 				}
 			}
 		} else {
-			blockchainSync.rAddr = rAddr
 			blockchainSync.targetIndex = blockIndex
-			blockchainSync.synchronizing = true
 
 			err := transport(rAddr, p2p_fork_point_event, state.prevHash[:])
 			if err != nil {
+				blockchainSync.over()
 				print(log_error, err)
 				return
 			}
@@ -177,13 +195,16 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 
-		block, err := getBlock(body[29:])
-		if err != nil || block == nil {
-			err = transport(rAddr, p2p_not_fork_point_event, body[29:])
-			if err != nil {
-				print(log_error, err)
+		_, err := getBlock(body[61:])
+		if err != nil {
+			errx := transport(rAddr, p2p_not_fork_point_event, body[29:])
+			if errx != nil {
+				print(log_error, errx)
 				return
 			}
+
+			print(log_error, err)
+			return
 		}
 
 		err = transport(rAddr, p2p_is_fork_point_event, body[29:])
@@ -193,36 +214,64 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		}
 
 	case p2p_is_fork_point_event:
-		print(log_info, "p2p_is_fork_point_event:")
+		if !blockchainSync.synchronizing {
+			print(log_warning, "p2p_is_fork_point_event: synchronizing not start")
+			return
+		}
+
+		print(log_info, "p2p_is_fork_point_event:", blockchainSync)
 		if len(body[29:]) != 36 {
+			blockchainSync.over()
 			print(log_error, ErrBlockHashFormat)
 			return
 		}
 
+	//	state := getState()
 		startIndex := binary.LittleEndian.Uint32(body[61:])
+
+		// TODO
+		/*
+		err := deleteUntill(startIndex)
+		if err != nil {
+			blockchainSync.over()
+			print(log_error, err)
+			return
+		}
+		*/
+
+
 		print(log_info, "Block synchronization:")
 		print(log_info, startIndex, "===>", blockchainSync.targetIndex)
 		err := transport(rAddr, p2p_get_block_hashes_event, body[29:])
 		if err != nil {
+			blockchainSync.over()
 			print(log_error, err)
 			return
 		}
 
 	case p2p_not_fork_point_event:
-		print(log_info, "p2p_not_fork_point_event:")
+		if !blockchainSync.synchronizing {
+			print(log_warning, "p2p_not_fork_point_event: synchronizing not start")
+			return
+		}
+
+		print(log_info, "p2p_not_fork_point_event:", blockchainSync)
 		if len(body[29:]) != 36 {
+			blockchainSync.over()
 			print(log_error, ErrBlockHashFormat)
 			return
 		}
 
-		block, err := getBlockByHash(body[61:])
+		block, err := getBlock(body[61:])
 		if err != nil {
-			print(log_error, ErrBlockHashFormat)
+			blockchainSync.over()
+			print(log_error, err)
 			return
 		}
 
 		err = transport(rAddr, p2p_fork_point_event, block.head.prevHash[:])
 		if err != nil {
+			blockchainSync.over()
 			print(log_error, err)
 			return
 		}
@@ -239,6 +288,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		binary.LittleEndian.PutUint32(bs, index)
 		block, err := getBlock(bs)
 		if err != nil {
+			print(log_error, err)
 			transport(rAddr, p2p_sync_post_event, nil)
 			return
 		}
@@ -249,6 +299,11 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 	case p2p_sync_post_event:
+		if !blockchainSync.synchronizing {
+			print(log_warning, "p2p_is_fork_point_event: synchronizing not start")
+			return
+		}
+
 		print(log_info, "p2p_sync_post_event:")
 		bodyLength := len(body)
 		print(log_info, "body length:", bodyLength)
@@ -257,24 +312,21 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 
 		err := block.Append()
 		if err != nil {
-			blockchainSync.rAddr = nil
-			blockchainSync.targetIndex = 0
-			blockchainSync.synchronizing = false
+			blockchainSync.over()
 			print(log_error, err)
 			return
 		}
 		blockIndex := binary.LittleEndian.Uint32(block.head.hash[32:])
 		print(log_info, "synchronizing: ... (" + fmt.Sprintf("%d", blockIndex) + "/" + fmt.Sprintf("%d", blockchainSync.targetIndex) + ")")
 		if blockchainSync.targetIndex == blockIndex {
-			blockchainSync.rAddr = nil
-			blockchainSync.targetIndex = 0
-			blockchainSync.synchronizing = false
+			blockchainSync.over()
 			print(log_info, "Block synchronization finished")
 			return
 		}
 
 		err = transport(rAddr, p2p_get_block_hashes_event, block.head.hash[:])
 		if err != nil {
+			blockchainSync.over()
 			print(log_error, err)
 			return
 		}
@@ -287,7 +339,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 }
 
 func transportFailed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, syns []uint32) {
-	fmt.Println(key, syns)
+	fmt.Println("transport failed", key, syns)
 }
 
 func peerHandler(w http.ResponseWriter, req *http.Request) {
