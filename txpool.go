@@ -64,18 +64,20 @@ func decodeTxPool(bs []byte) txPool_T {
 var transactionPool = make(txPool_T, 0, 511)
 
 type poolCache_T struct {
+	prevHash [36]byte
 	state *state_T
 	transactions txPool_T
 }
 
 func (cache *poolCache_T) encode() []byte {
-	bs := cache.state.encode()
-	stateLength := len(bs)
+	bs := cache.prevHash[:]
+	bs = append(bs, cache.state.encode()...)
+	transactionsPosition := len(bs)
 
 	rawTransactions := cache.transactions.encode()
 	bs = append(bs, rawTransactions...)
 	bs = append(bs, []byte{0, 0, 0, 0}...)
-	binary.LittleEndian.PutUint32(bs[len(bs) - 4:], uint32(stateLength))
+	binary.LittleEndian.PutUint32(bs[len(bs) - 4:], uint32(transactionsPosition))
 
 	return bs
 }
@@ -84,12 +86,14 @@ func decodePoolCache(bs []byte) *poolCache_T {
 	cache := &poolCache_T{}
 
 	length := len(bs)
+	cache.prevHash = [36]byte(bs[:36])
+
 	start := length - 4
-	stateLength := int(binary.LittleEndian.Uint32(bs[start:]))
+	transactionsPosition := int(binary.LittleEndian.Uint32(bs[start:]))
 
-	cache.state = decodeState(bs[:stateLength])
+	cache.state = decodeState(bs[36:transactionsPosition])
 
-	start = stateLength
+	start = transactionsPosition
 	cache.transactions = decodeTxPool(bs[start:length - 4])
 
 	return cache

@@ -7,8 +7,13 @@ import (
 	"net"
 	"net/http"
 	"encoding/hex"
+	"encoding/binary"
 	"log"
+
+	"github.com/syndtr/goleveldb/leveldb"
 )
+
+const firstBlock = "00000000000000000000000000000000000000000000000000000000000000000000000000000ca4383d9db17acc0ccfd39f876c9d259ed3e71ef582e65da058018e7cca010000002c57e1558dd4b577a2348aae091bf1f8134a591c7db78f50a53b6697fec59d2321982304d8630de8eb5c2a4f22531e04670d34d405b1c4e13723685f8fae83901f00fffff91aed670000000028140000004443557a325a32443843395943375a5761564277417831367679677041473466535400743ba40b0000008f4b42fa1f00ffff4443557a325a32443843395943375a5761564277417831367679677041473466535400743ba40b000000000000000000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c7000000"
 
 type blockchainSync_T struct {
 	rAddr *net.UDPAddr
@@ -28,7 +33,6 @@ func (chainSync *blockchainSync_T) over () {
 }
 
 var blockchainSync blockchainSync_T
-// var batch = &leveldb.Batch{}
 
 type blockchain_T []*blockHead_T
 
@@ -60,13 +64,49 @@ func decodeBlockchain(bs []byte) blockchain_T {
 	return blockchain
 }
 
-/*
-func deleteUntill(state *state_T, targetIndex uint32) error {
-	for index := binary.LittleEndian.Uint32(state.prevHash[32:]); index > targetIndex; index-- {
+func rollbackChain(startIndex uint32) error {
+	height, err := getIndex()
+	if err != nil {
+		return err
+	}
 
+	batch := &leveldb.Batch{}
+	indexB := make([]byte, 4, 4)
+	var index uint32
+	for index = height; index > startIndex; index-- {
+		binary.LittleEndian.PutUint32(indexB, index)
+		batch.Delete(indexB)
+	}
+	binary.LittleEndian.PutUint32(indexB, index)
+	batch.Put([]byte("index"), indexB)
+	err = chainDB.Write(batch, nil)
+	if err != nil {
+		blockchainSync.over()
+		return err
+	}
+
+	return nil
+}
+
+func initIndex() {
+	/* keepit */
+	_, err := chainDB.Get([]byte("index"), nil)
+	if err == leveldb.ErrNotFound {
+		bs, err := hex.DecodeString(firstBlock)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		batch := &leveldb.Batch{}
+		batch.Put([]byte("index"), []byte{1, 0, 0, 0})
+		batch.Put([]byte{1, 0, 0, 0}, bs)
+
+		err = chainDB.Write(batch, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
-*/
 
 func blockchainHandler(w http.ResponseWriter, req *http.Request) {
 	cors(w)

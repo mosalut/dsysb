@@ -6,15 +6,12 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"net/http"
-	"log"
-
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 const dsysbId = "0000000000000000000000000000000000000000000000000000000000000000"
 
 type state_T struct {
-	prevHash [36]byte
+//	prevHash [36]byte
 	bits uint32
 	assets assetPool_T
 	accounts map[string]*account_T
@@ -31,11 +28,15 @@ func (state *state_T)encode() []byte {
 	length := 44 + assetLength + accountLength // 44 = 36 + 4 + 4
 	bs := make([]byte, length, length)
 	var start int
+	/*
 	end := 36
 	copy(bs[:end], state.prevHash[:])
 
 	start = end
 	end += 4
+	*/
+
+	end := 4
 	binary.LittleEndian.PutUint32(bs[start:end], state.bits)
 
 	start = end
@@ -65,6 +66,7 @@ func (state *state_T)encode() []byte {
 
 func decodeState(bs []byte) *state_T {
 	var start int
+	/*
 	end := 36
 
 	state := &state_T{}
@@ -72,8 +74,11 @@ func decodeState(bs []byte) *state_T {
 
 	start = end
 	end += 4
-	state.bits = binary.LittleEndian.Uint32(bs[start:end])
+	*/
 
+	end := 4
+	state := &state_T{}
+	state.bits = binary.LittleEndian.Uint32(bs[start:end])
 
 	start = len(bs) - 4
 	accountBytesLength := int(binary.LittleEndian.Uint32(bs[start:]))
@@ -130,6 +135,11 @@ func getState() (*state_T, error) {
 
 	index := binary.LittleEndian.Uint32(indexB)
 
+	/* keepit
+	index := 0
+	indexB := []byte{0, 0, 0, 0}
+	*/
+
 	if index == 0 {
 		state := &state_T{}
 		state.bits = binary.LittleEndian.Uint32(difficult_1_target[:])
@@ -144,34 +154,6 @@ func getState() (*state_T, error) {
 	}
 
 	return block.state, nil
-}
-
-/*
-func (state *state_T)update() error {
-	err := chainDB.Put([]byte("state"), state.encode(), nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-*/
-
-func initState() {
-	_, err := chainDB.Get([]byte("index"), nil)
-	if err == leveldb.ErrNotFound {
-		errx := chainDB.Put([]byte("index"), []byte{0, 0, 0, 0}, nil)
-		if errx != nil {
-			log.Fatal(errx)
-		}
-		return
-	}
-
-	if err != nil {
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
 }
 
 func stateHandler(w http.ResponseWriter, req *http.Request) {

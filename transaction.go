@@ -155,14 +155,27 @@ func poolToCache() (*poolCache_T, error) {
 		return nil, err
 	}
 
+	var prevHash [36]byte
+	/* keepit */
+	block, err := getHashBlock()
+	if err == errZeroBlock {
+		print(log_warning, err)
+	} else if err != nil {
+		return nil, err
+	} else {
+		prevHash = [36]byte(block.head.hash)
+	}
+
 	if len(transactionPool) <= 511 {
 		return &poolCache_T {
+			prevHash,
 			state,
 			transactionPool,
 		}, nil
 	}
 
 	return &poolCache_T {
+		prevHash,
 		state,
 		transactionPool[:511],
 	}, nil

@@ -59,7 +59,7 @@ func main() {
 	print(log_debug, "conn:", peer.Conn)
 
 	initDB()
-	initState()
+	initIndex()
 	runHttpServer(cmdFlag.httpPort)
 }
 

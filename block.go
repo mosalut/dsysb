@@ -24,9 +24,10 @@ const (
 	bh_nonce_position = 148
 )
 
-var ErrBlockIdNotMatch = errors.New("block hash and index are not match.")
-var ErrBlockHashFormat = errors.New("invalid block hash format.")
-var ErrPrevHashNotMatch = errors.New("state prev hash and block prev hash are not match.")
+var errBlockIdNotMatch = errors.New("block hash and index are not match.")
+var errBlockHashFormat = errors.New("invalid block hash format.")
+var errPrevHashNotMatch = errors.New("state prev hash and block prev hash are not match.")
+var errZeroBlock = errors.New("Zero block")
 
 // Head:
 // 	[:36] - prev hash
@@ -148,8 +149,14 @@ func getHashBlock() (*block_T, error) {
 		return nil, err
 	}
 
+	index := binary.LittleEndian.Uint32(indexB)
+	if index == 0 {
+		return nil, errZeroBlock
+	}
+
 	block, err := getBlock(indexB)
 	if err != nil {
+		print(log_error, err)
 		return nil, err
 	}
 
@@ -158,7 +165,7 @@ func getHashBlock() (*block_T, error) {
 
 func getBlockByHash(hash []byte) (*block_T, error) {
 	if len(hash) != 36 {
-		return nil, ErrBlockHashFormat
+		return nil, errBlockHashFormat
 	}
 
 	block, err := getBlock(hash[32:])
@@ -169,7 +176,7 @@ func getBlockByHash(hash []byte) (*block_T, error) {
 	hash0 := fmt.Sprintf("%x", hash)
 	hash1 := fmt.Sprintf("%x", block.head.hash)
 	if hash0 != hash1 {
-		return nil, ErrBlockIdNotMatch
+		return nil, errBlockIdNotMatch
 	}
 
 	return block, nil
@@ -193,15 +200,18 @@ func getBlock(hashBytes []byte) (*block_T, error) {
 }
 
 func (block *block_T)Append() error {
-	state, err := getState()
+	prevBlock, err := getHashBlock()
 	if err != nil {
+		print(log_error, err)
 		return err
 	}
-	statePrevHash := fmt.Sprintf("%072x", state.prevHash)
+	prevHash := fmt.Sprintf("%072x", prevBlock.head.hash)
 	blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
 
-	if statePrevHash != blockPrevHash {
-		return ErrPrevHashNotMatch
+	if prevHash != blockPrevHash {
+		print(log_debug, prevHash)
+		print(log_debug, blockPrevHash)
+		return errPrevHashNotMatch
 	}
 
 	for _, tx := range block.body.transactions {
@@ -209,13 +219,12 @@ func (block *block_T)Append() error {
 		if err != nil{
 			return err
 		}
-		err = tx.countOnNewBlock(state)
+		err = tx.countOnNewBlock(block.state)
 		if err != nil {
 			return err
 		}
 	}
 
-	copy(state.prevHash[:], block.head.hash[:])
 	batch := &leveldb.Batch{}
 	batch.Put([]byte("index"), block.head.hash[32:])
 	batch.Put(block.head.hash[32:], block.encode())
@@ -254,7 +263,7 @@ func blockHandler(w http.ResponseWriter, req *http.Request) {
 
 	block, err := getBlock(buffer)
 	if err != nil {
-		writeResult(w, responseResult_T{false, err.Error() + " height should be a number!", nil})
+		writeResult(w, responseResult_T{false, err.Error(), nil})
 		return
 	}
 

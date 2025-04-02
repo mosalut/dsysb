@@ -139,32 +139,34 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 
+		/*
 		state, err := getState()
 		if err != nil {
 			blockchainSync.over()
 			print(log_error, err)
 			return
 		}
+		*/
 
-		statePrevHash := fmt.Sprintf("%072x", state.prevHash)
+		lBlock, err := getHashBlock()
+		if err != nil {
+			blockchainSync.over()
+			print(log_error, err)
+			return
+		}
+
+		lBlockHash := fmt.Sprintf("%072x", lBlock.head.hash)
 		blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
 
-		statePrevIndex := binary.LittleEndian.Uint32(state.prevHash[32:])
-		if statePrevIndex > blockPrevIndex {
+		lBlockIndex := binary.LittleEndian.Uint32(lBlock.head.hash[32:])
+		if lBlockIndex > blockPrevIndex {
 			blockchainSync.over()
 			print(log_warning, "p2p_add_block_event: Get a lower block.")
 			return
-		} else if statePrevIndex == blockPrevIndex {
-			if statePrevHash != blockPrevHash {
-				prevBlock, err := getBlockByHash(state.prevHash[:])
-				if err != nil {
-					blockchainSync.over()
-					print(log_error, err)
-					return
-				}
-
+		} else if lBlockIndex == blockPrevIndex {
+			if lBlockHash != blockPrevHash {
 				blockchainSync.targetIndex = blockIndex
-				err = transport(rAddr, p2p_fork_point_event, prevBlock.head.prevHash[:])
+				err = transport(rAddr, p2p_fork_point_event, lBlock.head.prevHash[:])
 				if err != nil {
 					blockchainSync.over()
 					print(log_error, err)
@@ -177,11 +179,12 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 					print(log_error, err)
 					return
 				}
+				blockchainSync.over()
 			}
 		} else {
 			blockchainSync.targetIndex = blockIndex
 
-			err := transport(rAddr, p2p_fork_point_event, state.prevHash[:])
+			err := transport(rAddr, p2p_fork_point_event, lBlock.head.hash[:])
 			if err != nil {
 				blockchainSync.over()
 				print(log_error, err)
@@ -191,11 +194,11 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 	case p2p_fork_point_event:
 		print(log_info, "p2p_fork_point_event:")
 		if len(body[29:]) != 36 {
-			print(log_error, ErrBlockHashFormat)
+			print(log_error, errBlockHashFormat)
 			return
 		}
 
-		_, err := getBlock(body[61:])
+		_, err := getBlockByHash(body[29:])
 		if err != nil {
 			errx := transport(rAddr, p2p_not_fork_point_event, body[29:])
 			if errx != nil {
@@ -222,27 +225,23 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		print(log_info, "p2p_is_fork_point_event:", blockchainSync)
 		if len(body[29:]) != 36 {
 			blockchainSync.over()
-			print(log_error, ErrBlockHashFormat)
+			print(log_error, errBlockHashFormat)
 			return
 		}
 
-	//	state := getState()
 		startIndex := binary.LittleEndian.Uint32(body[61:])
 
 		// TODO
-		/*
-		err := deleteUntill(startIndex)
+		err := rollbackChain(startIndex)
 		if err != nil {
 			blockchainSync.over()
 			print(log_error, err)
 			return
 		}
-		*/
-
 
 		print(log_info, "Block synchronization:")
 		print(log_info, startIndex, "===>", blockchainSync.targetIndex)
-		err := transport(rAddr, p2p_get_block_hashes_event, body[29:])
+		err = transport(rAddr, p2p_get_block_hashes_event, body[29:])
 		if err != nil {
 			blockchainSync.over()
 			print(log_error, err)
@@ -258,7 +257,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		print(log_info, "p2p_not_fork_point_event:", blockchainSync)
 		if len(body[29:]) != 36 {
 			blockchainSync.over()
-			print(log_error, ErrBlockHashFormat)
+			print(log_error, errBlockHashFormat)
 			return
 		}
 
@@ -278,7 +277,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 	case p2p_get_block_hashes_event:
 		print(log_info, "p2p_get_block_hashes_event:")
 		if len(body[29:]) != 36 {
-			print(log_error, ErrBlockHashFormat)
+			print(log_error, errBlockHashFormat)
 			return
 		}
 
@@ -300,7 +299,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		}
 	case p2p_sync_post_event:
 		if !blockchainSync.synchronizing {
-			print(log_warning, "p2p_is_fork_point_event: synchronizing not start")
+			print(log_warning, "p2p_sync_post_event: synchronizing not start")
 			return
 		}
 

@@ -118,7 +118,6 @@ func (transfer *transfer_T) validate(fromP2p bool) error {
 	}
 
 	nonce := account.nonce
-//	fmt.Println("nonces:", transfer.nonce, nonce)
 	if transfer.nonce - nonce != 1 {
 		return errors.New("The nonces are not match")
 	}
