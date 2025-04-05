@@ -137,49 +137,6 @@ func (transfer *transfer_T) verifySign() bool {
 	return ok
 }
 
-func (transfer *transfer_T) countOnNewBlock(state *state_T) error {
-	accountFrom, ok := state.accounts[transfer.from]
-	if !ok {
-		return errors.New("The address of transfer from is empty")
-	}
-
-	accountTo, ok := state.accounts[transfer.to]
-	if !ok {
-		state.accounts[transfer.to] = &account_T{}
-		accountTo = state.accounts[transfer.to]
-		accountTo.assets = make(map[string]uint64)
-	}
-
-	id := fmt.Sprintf("%064x", transfer.assetId)
-
-	if id == dsysbId {
-		if accountFrom.balance < transfer.amount {
-			return errors.New("not enough minerals")
-		}
-
-		accountFrom.balance, accountTo.balance = accountFrom.balance - transfer.amount, accountTo.balance + transfer.amount
-	} else {
-		balance, ok := accountFrom.assets[id]
-		if !ok {
-			return errors.New("There is not this asset")
-		}
-
-		if balance < transfer.amount {
-			return errors.New("not enough minerals")
-		}
-
-		_, ok = accountTo.assets[id]
-		if !ok {
-			accountTo.assets[id] = 0
-		}
-		accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
-	}
-
-	accountFrom.nonce = transfer.nonce
-
-	return nil
-}
-
 func (transfer *transfer_T) String() string {
 	return fmt.Sprintf(
 		"\tfrom: %s\n" +

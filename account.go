@@ -3,9 +3,12 @@
 package main
 
 import (
+	"sort"
+	"math/big"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 )
 
 type account_T struct {
@@ -22,7 +25,23 @@ func (account *account_T)encode() []byte {
 
 	binary.LittleEndian.PutUint64(bs[:end], account.balance)
 
-	for k, asset := range account.assets {
+	astLength := len(account.assets)
+	keys := make([]string, 0, astLength)
+	for k, _ := range account.assets {
+		keys = append(keys, k)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		a := big.NewInt(0)
+		a.SetString(keys[i], 16)
+
+		b := big.NewInt(0)
+		b.SetString(keys[j], 16)
+
+		return a.Cmp(b) > 0
+	})
+
+	for _, k := range keys {
 		start = end
 		end += 32
 		key, err := hex.DecodeString(k)
@@ -33,7 +52,7 @@ func (account *account_T)encode() []byte {
 		copy(bs[start:end], key)
 		start = end
 		end += 8
-		binary.LittleEndian.PutUint64(bs[start:end], asset)
+		binary.LittleEndian.PutUint64(bs[start:end], account.assets[k])
 	}
 
 	start = end
@@ -67,4 +86,15 @@ func decodeAccount(bs []byte) *account_T {
 
 func (account *account_T)hash() [32]byte {
 	return sha256.Sum256(account.encode())
+}
+
+func (account *account_T)String() string {
+	value := fmt.Sprintf("\tbalance: %d", account.balance)
+	value += "\tassets:\n"
+	for k, asset := range account.assets {
+		value += fmt.Sprintf("\t\t%s: %v\n", k, asset)
+	}
+	value += fmt.Sprintf("\tnonce: %d\n", account.nonce)
+
+	return value
 }

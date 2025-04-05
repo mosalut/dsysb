@@ -112,6 +112,15 @@ func decodeBlockBody(bs []byte) *blockBody_T {
 	return body
 }
 
+func (body *blockBody_T) String() string {
+	s := "body:\n"
+	for _, tx := range body.transactions {
+		s += tx.String()
+	}
+
+	return s
+}
+
 type block_T struct {
 	head *blockHead_T
 	body *blockBody_T
@@ -139,6 +148,10 @@ func decodeBlock(bs []byte) *block_T {
 	block.stateLength = binary.LittleEndian.Uint32(bs[length - 4:])
 
 	return block
+}
+
+func (block *block_T) String() string {
+	return block.head.String() + "\n" + block.body.String() + "\n" + block.state.String()
 }
 
 const genesisPrevHash = "000000000000000000000000000000000000000000000000000000000000000000000000" // [36]byte{}
@@ -209,18 +222,12 @@ func (block *block_T)Append() error {
 	blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
 
 	if prevHash != blockPrevHash {
-		print(log_debug, prevHash)
-		print(log_debug, blockPrevHash)
 		return errPrevHashNotMatch
 	}
 
 	for _, tx := range block.body.transactions {
 		err = tx.validate(true)
 		if err != nil{
-			return err
-		}
-		err = tx.countOnNewBlock(block.state)
-		if err != nil {
 			return err
 		}
 	}

@@ -82,6 +82,15 @@ func decodeAsset(bs []byte) *asset_T {
 	return asset
 }
 
+func (asset *asset_T) String() string {
+	return "\tname:\t" + asset.name +
+		"\n\tsymbol:\t" + asset.symbol +
+		"\n\tdecimals:\t" + fmt.Sprintf("%d", asset.decimals) +
+		"\n\ttotal supply:\t" + fmt.Sprintf("%d Satoshi", asset.totalSupply) +
+		"\n\tprice:\t" + fmt.Sprintf("%d Satoshi", asset.price) +
+		"\n\tblocks:\t" + fmt.Sprintf("%d", asset.blocks)
+}
+
 type assetPool_T map[string]*asset_T  // key is an assetId
 func (pool assetPool_T) encode() []byte {
 	length := len(pool) * asset_length
@@ -133,6 +142,8 @@ func listAssetsHandler(w http.ResponseWriter, req *http.Request) {
 		writeResult(w, responseResult_T{false, "dsysb inner error", nil})
 		return
 	}
+
+	fmt.Println(state.assets)
 
 	writeResult(w, responseResult_T{true, "ok", state.assets.encode()})
 }
@@ -246,44 +257,6 @@ func (ca *createAsset_T) verifySign() bool {
 	txid := ca.hash()
 	ok := ecdsa.Verify(&publicKey, txid[:], big.NewInt(0).SetBytes(ca.signer.signature[:32]), big.NewInt(0).SetBytes(ca.signer.signature[32:]))
 	return ok
-}
-
-func (ca *createAsset_T) countOnNewBlock(state *state_T) error {
-	asset := &asset_T {
-		ca.name,
-		ca.symbol,
-		ca.decimals,
-		ca.totalSupply,
-		ca.price,
-		ca.blocks,
-		ca.blocks,
-	}
-
-	assetIdB := asset.hash()
-	assetId := fmt.Sprintf("%064x", assetIdB)
-	_, ok := state.assets[assetId]
-	fmt.Println(ok)
-	if ok {
-		return errors.New("Asset is already in")
-	}
-
-	account, ok := state.accounts[ca.from]
-	if !ok {
-		return errors.New("CA from is empty address")
-	}
-
-	fee := ca.price * uint64(ca.blocks)
-	if account.balance < fee {
-		return errors.New("not enough minerals")
-	}
-
-	state.assets[assetId] = asset
-
-	account.balance -= fee
-	account.assets[assetId] = ca.totalSupply
-	account.nonce = ca.nonce
-
-	return nil
 }
 
 func (ca *createAsset_T) String() string {

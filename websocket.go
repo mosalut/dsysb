@@ -3,7 +3,9 @@
 package main
 
 import (
+	"encoding/hex"
 	"net/http"
+	"fmt"
 
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -93,6 +95,11 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 
 			print(log_info, "ws_update sended")
 		case WS_MINED_BLOCK:
+			if blockchainSync.synchronizing {
+				print(log_info, "new block, but synchronizing")
+				continue
+			}
+
 			print(log_info, "new block")
 			if len(data.Body) < 34 {
 				print(log_error, "Data length wrong")
@@ -120,7 +127,74 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			indexLength := bh_length + len(blockBody.encode())
 			block := &block_T { wsAddBlockData.head, blockBody, wsAddBlockData.poolCache.state, uint32(indexLength)}
 
-			// TODO add block validation
+			// TODO block validation
+			lBlock, err := getHashBlock()
+			if err != nil {
+				print(log_error, err)
+				continue
+			}
+
+			blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
+			lBlockHash := fmt.Sprintf("%072x", lBlock.head.hash)
+
+			if blockPrevHash != lBlockHash {
+				fmt.Println(blockPrevHash)
+				fmt.Println(lBlockHash)
+				print(log_error, "The hash and prev hash are not match.")
+
+				socketData, err := makeMinedBlockData()
+				if err != nil {
+					print(log_error, err)
+					continue
+				}
+
+				err = conn.WriteJSON(socketData)
+				if err != nil {
+					print(log_error, conn.RemoteAddr, err)
+					continue
+				}
+				print(log_info, conn.RemoteAddr(), "ws_state sended")
+
+				continue
+			}
+
+			if hex.EncodeToString(newMerkleTree(block.body.transactions).data[:]) != hex.EncodeToString(block.head.transactionRoot[:]) {
+				print(log_warning, "WS: The transactionRoot and it's data are not match.")
+
+				socketData, err := makeMinedBlockData()
+				if err != nil {
+					print(log_error, err)
+					continue
+				}
+
+				err = conn.WriteJSON(socketData)
+				if err != nil {
+					print(log_error, conn.RemoteAddr, err)
+					continue
+				}
+				print(log_info, conn.RemoteAddr(), "ws_state sended")
+
+				continue
+			}
+
+			if fmt.Sprintf("%064x", block.state.hash()) != fmt.Sprintf("%064x", block.head.stateRoot) {
+				print(log_warning, "WS: The stateRoot and it's data are not match.")
+
+				socketData, err := makeMinedBlockData()
+				if err != nil {
+					print(log_error, err)
+					continue
+				}
+
+				err = conn.WriteJSON(socketData)
+				if err != nil {
+					print(log_error, conn.RemoteAddr, err)
+					continue
+				}
+				print(log_info, conn.RemoteAddr(), "ws_state sended")
+
+				continue
+			}
 
 			batch := &leveldb.Batch{}
 			batch.Put([]byte("index"), block.head.hash[32:])
@@ -135,19 +209,14 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			err = chainDB.Write(batch, nil)
 			if err != nil {
 				print(log_error, err)
-				return
+				continue
 			}
 
-			cache, err := poolToCache()
+			socketData, err := makeMinedBlockData()
 			if err != nil {
 				print(log_error, err)
-				return
+				continue
 			}
-
-			bs := cache.encode()
-			signatures = make([]string, 0, 511)
-
-			socketData := socketData_T { WS_MINED_BLOCK, bs }
 
 			for conn, _ := range minerConns {
 				err = conn.WriteJSON(socketData)
@@ -162,4 +231,17 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			broadcast(p2p_add_block_event, blockData)
 		}
 	}
+}
+
+// TODO DEBUG
+func makeMinedBlockData() (*socketData_T, error) {
+	cache, err := poolToCache()
+	if err != nil {
+		return nil, err
+	}
+
+	bs := cache.encode()
+	signatures = make([]string, 0, 511)
+
+	return &socketData_T { WS_MINED_BLOCK, bs }, nil
 }

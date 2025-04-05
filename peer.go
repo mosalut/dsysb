@@ -34,12 +34,17 @@ var receivedTransportIdsMutex = &sync.RWMutex{}
 func lifeCycle(peer *q2p.Peer_T, rAddr *net.UDPAddr, cycle int) {
 	switch cycle {
 	case q2p.JOIN:
+		err := sendLastestBlock(rAddr)
+		if err != nil {
+			print(log_error, err)
+		}
 		print(log_info, "life cycle JOIN")
-	//	postLastHash(peer, rAddr)
-	//	postDebug()
 	case q2p.CONNECT:
 		print(log_info, "life cycle CONNECT")
-	//	postLastHash(peer, rAddr)
+		err := sendLastestBlock(rAddr)
+		if err != nil {
+			print(log_error, err)
+		}
 	case q2p.CONNECTED:
 		print(log_info, "life cycle CONNECTED")
 	case q2p.TRANSPORT_FAILED:
@@ -138,15 +143,6 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			print(log_error, "Remote block's index and prev index are not match")
 			return
 		}
-
-		/*
-		state, err := getState()
-		if err != nil {
-			blockchainSync.over()
-			print(log_error, err)
-			return
-		}
-		*/
 
 		lBlock, err := getHashBlock()
 		if err != nil {

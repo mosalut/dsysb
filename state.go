@@ -3,15 +3,17 @@
 package main
 
 import (
+	"sort"
+	"math/big"
 	"crypto/sha256"
 	"encoding/binary"
 	"net/http"
+	"fmt"
 )
 
 const dsysbId = "0000000000000000000000000000000000000000000000000000000000000000"
 
 type state_T struct {
-//	prevHash [36]byte
 	bits uint32
 	assets assetPool_T
 	accounts map[string]*account_T
@@ -25,16 +27,9 @@ func (state *state_T)encode() []byte {
 		accountLength += 14 + len(account.assets) * 40 + 34 // 14 = 8 + 4 + 2, 40 = 32 + 8
 	}
 
-	length := 44 + assetLength + accountLength // 44 = 36 + 4 + 4
+	length := 8 + assetLength + accountLength // 8 = 4 + 4
 	bs := make([]byte, length, length)
 	var start int
-	/*
-	end := 36
-	copy(bs[:end], state.prevHash[:])
-
-	start = end
-	end += 4
-	*/
 
 	end := 4
 	binary.LittleEndian.PutUint32(bs[start:end], state.bits)
@@ -43,19 +38,38 @@ func (state *state_T)encode() []byte {
 	end += assetLength
 	copy(bs[start:end], state.assets.encode())
 
-	for k, account := range state.accounts {
+	acsLength := len(state.accounts)
+	keys := make([]string, 0, acsLength)
+	for k, _ := range state.accounts {
+		keys = append(keys, k)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		bsi := []byte(keys[i])
+		bsj := []byte(keys[j])
+
+		a := big.NewInt(0)
+		a.SetBytes(bsi)
+
+		b := big.NewInt(0)
+		b.SetBytes(bsj)
+
+		return a.Cmp(b) > 0
+	})
+
+	for _, key := range keys {
 		start = end
 		end += 34
-		copy(bs[start:end], k)
+		copy(bs[start:end], key)
 
-		accountBytes := account.encode()
+		accountBytes := state.accounts[key].encode()
 		start = end
 		end += len(accountBytes)
 		copy(bs[start:end], accountBytes)
 
 		start = end
 		end += 2
-		binary.LittleEndian.PutUint16(bs[start:end], uint16(len(account.assets)))
+		binary.LittleEndian.PutUint16(bs[start:end], uint16(len(state.accounts[key].assets)))
 	}
 
 	start = end
@@ -66,15 +80,6 @@ func (state *state_T)encode() []byte {
 
 func decodeState(bs []byte) *state_T {
 	var start int
-	/*
-	end := 36
-
-	state := &state_T{}
-	copy(state.prevHash[:], bs[:end])
-
-	start = end
-	end += 4
-	*/
 
 	end := 4
 	state := &state_T{}
@@ -116,6 +121,23 @@ func (state *state_T)hash() [32]byte {
 	return sha256.Sum256(state.encode())
 }
 
+func (state *state_T)String() string {
+	value := ("state:\n")
+	value += fmt.Sprintf("\tbits: %x\n", state.bits)
+	value += "\tassets:\n"
+	for _, asset := range state.assets {
+		value += fmt.Sprintf("\t\t%v\n", asset)
+	}
+
+	value += "\taccounts:\n"
+	for k, account := range state.accounts {
+		value += fmt.Sprintf("\t\t%s: %v\n", k, account)
+	}
+
+	return value
+
+}
+
 func getIndex() (uint32, error) {
 	indexB, err := chainDB.Get([]byte("index"), nil)
 	if err != nil {
@@ -133,20 +155,14 @@ func getState() (*state_T, error) {
 		return nil, err
 	}
 
-	index := binary.LittleEndian.Uint32(indexB)
-
 	/* keepit
-	index := 0
 	indexB := []byte{0, 0, 0, 0}
+	state := &state_T{}
+	state.bits = binary.LittleEndian.Uint32(difficult_1_target[:])
+	state.assets = make(assetPool_T)
+	state.accounts = make(map[string]*account_T)
+	return state, nil
 	*/
-
-	if index == 0 {
-		state := &state_T{}
-		state.bits = binary.LittleEndian.Uint32(difficult_1_target[:])
-		state.assets = make(assetPool_T)
-		state.accounts = make(map[string]*account_T)
-		return state, nil
-	}
 
 	block, err := getBlock(indexB)
 	if err != nil {

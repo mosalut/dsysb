@@ -51,6 +51,9 @@ func main() {
 	peer.Successed = transportSuccessed
 	peer.Failed = transportFailed
 
+	initDB()
+	initIndex()
+
 	print(log_debug, "peer:", peer)
 	err := peer.Run()
 	if err != nil {
@@ -58,8 +61,6 @@ func main() {
 	}
 	print(log_debug, "conn:", peer.Conn)
 
-	initDB()
-	initIndex()
 	runHttpServer(cmdFlag.httpPort)
 }
 

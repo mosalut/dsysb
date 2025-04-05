@@ -63,26 +63,11 @@ func (coinbase *coinbase_T) verifySign() bool {
 	return true
 }
 
-func (coinbase *coinbase_T) countOnNewBlock(state *state_T) error {
-	_, ok := state.accounts[coinbase.to]
-	if !ok {
-		state.accounts[coinbase.to] = &account_T {
-			coinbase.amount,
-			make(map[string]uint64),
-			0,
-		}
-	} else {
-		state.accounts[coinbase.to].balance += coinbase.amount
-	}
-
-	return nil
-}
-
 func (tx *coinbase_T) String() string {
 	return fmt.Sprintf(
 		"\ttxid:\t%064x\n" +
 		"\ttype:\tcoinbase\n" +
 		"\tto: %s\n" +
 		"\tamount: %d\n" +
-		"\tnonce: %d\n\n", tx.hash(), tx.to, tx.nonce, tx.amount)
+		"\tnonce: %d", tx.hash(), tx.to, tx.nonce, tx.amount)
 }

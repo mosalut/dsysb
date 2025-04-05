@@ -23,7 +23,6 @@ type transaction_I interface {
 	encode() []byte
 	validate(bool) error
 	verifySign() bool
-	countOnNewBlock(*state_T) error
 	String() string
 }
 
@@ -49,7 +48,6 @@ func decodeRawTransaction(bs []byte) transaction_I {
 
 func sendRawTransaction(bs []byte) error {
 	transaction := decodeRawTransaction(bs)
-	txid := transaction.hash()
 
 	err := transaction.validate(false)
 	if err != nil {
@@ -60,7 +58,7 @@ func sendRawTransaction(bs []byte) error {
 	transactionPool = append(transactionPool, transaction)
 	poolMutex.Unlock()
 
-	broadcast(p2p_transport_sendrawtransaction_event, txid[:])
+	broadcast(p2p_transport_sendrawtransaction_event, bs)
 
 	return nil
 }
@@ -150,11 +148,6 @@ func getTransactionHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func poolToCache() (*poolCache_T, error) {
-	state, err := getState()
-	if err != nil {
-		return nil, err
-	}
-
 	var prevHash [36]byte
 	/* keepit */
 	block, err := getHashBlock()
@@ -169,14 +162,14 @@ func poolToCache() (*poolCache_T, error) {
 	if len(transactionPool) <= 511 {
 		return &poolCache_T {
 			prevHash,
-			state,
+			block.state,
 			transactionPool,
 		}, nil
 	}
 
 	return &poolCache_T {
 		prevHash,
-		state,
+		block.state,
 		transactionPool[:511],
 	}, nil
 }

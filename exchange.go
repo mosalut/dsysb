@@ -115,49 +115,6 @@ func (ex *exchange_T) verifySign() bool {
 	return true
 }
 
-func (ex *exchange_T) countOnNewBlock(state *state_T) error {
-	for _, transfer := range ex {
-		accountFrom, ok := state.accounts[transfer.from]
-		if !ok {
-			return errors.New("The address of transfer from is empty")
-		}
-
-		accountTo, ok := state.accounts[transfer.to]
-		if !ok {
-			state.accounts[transfer.to] = &account_T{}
-			accountTo = state.accounts[transfer.to]
-			accountTo.assets = make(map[string]uint64)
-		}
-
-		id := fmt.Sprintf("%064x", transfer.assetId)
-
-		if id == dsysbId {
-			if accountFrom.balance < transfer.amount {
-				return errors.New("not enough minerals")
-			}
-
-			accountFrom.balance, accountTo.balance = accountFrom.balance - transfer.amount, accountTo.balance + transfer.amount
-		} else {
-			balance, ok := accountFrom.assets[id]
-			if !ok {
-				return errors.New("There is not this asset")
-			}
-
-			if balance < transfer.amount {
-				return errors.New("not enough minerals")
-			}
-
-			_, ok = accountTo.assets[id]
-			if !ok {
-				accountTo.assets[id] = 0
-			}
-			accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
-		}
-	}
-
-	return nil
-}
-
 func (ex *exchange_T) String() string {
 	return fmt.Sprintf(
 		"\ttxid:\t%064x\n" +
@@ -172,5 +129,5 @@ func (ex *exchange_T) String() string {
 		"\tamount: %d\n" +
 		"\tasset id: %064x\n" +
 		"\tnonce: %d\n" +
-		"%s\n\n", ex.hash(), ex[0].from, ex[0].to, ex[0].amount, ex[0].assetId, ex[0].nonce, ex[0].signer, ex[1].from, ex[1].to, ex[1].amount, ex[1].assetId, ex[1].nonce, ex[1].signer)
+		"%s", ex.hash(), ex[0].from, ex[0].to, ex[0].amount, ex[0].assetId, ex[0].nonce, ex[0].signer, ex[1].from, ex[1].to, ex[1].amount, ex[1].assetId, ex[1].nonce, ex[1].signer)
 }
