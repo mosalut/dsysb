@@ -163,6 +163,7 @@ func poolToCache() (*poolCache_T, error) {
 		return &poolCache_T {
 			prevHash,
 			block.state,
+		//	firstState,
 			transactionPool,
 		}, nil
 	}
@@ -170,6 +171,7 @@ func poolToCache() (*poolCache_T, error) {
 	return &poolCache_T {
 		prevHash,
 		block.state,
+	//	firstState,
 		transactionPool[:511],
 	}, nil
 }

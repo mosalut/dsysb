@@ -138,6 +138,12 @@ func (state *state_T)String() string {
 
 }
 
+var firstState = &state_T {
+	binary.LittleEndian.Uint32(difficult_1_target[:]),
+	make(assetPool_T),
+	make(map[string]*account_T),
+}
+
 func getIndex() (uint32, error) {
 	indexB, err := chainDB.Get([]byte("index"), nil)
 	if err != nil {
@@ -157,11 +163,7 @@ func getState() (*state_T, error) {
 
 	/* keepit
 	indexB := []byte{0, 0, 0, 0}
-	state := &state_T{}
-	state.bits = binary.LittleEndian.Uint32(difficult_1_target[:])
-	state.assets = make(assetPool_T)
-	state.accounts = make(map[string]*account_T)
-	return state, nil
+	return firstState, nil
 	*/
 
 	block, err := getBlock(indexB)
