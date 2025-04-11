@@ -8,6 +8,7 @@ import (
 	"crypto/elliptic"
 	"math/big"
 	"encoding/binary"
+	"regexp"
 	"net/http"
 	"errors"
 	"fmt"
@@ -211,6 +212,30 @@ func decodeCreateAsset(bs []byte) *createAsset_T {
 }
 
 func (ca *createAsset_T) validate(fromP2p bool) error {
+	matched, err := regexp.MatchString("^[a-zA-Z0-9]{5,10}$", ca.name)
+	if err != nil {
+		return err
+	}
+	if !matched {
+		return errors.New("The length of `name` must between 5 to 10, and the characters must be littles or numbers")
+	}
+
+	if ca.name == "dsysb" || ca.name == "DSYSB" {
+		return errors.New("`" + ca.name + "` has been kept")
+	}
+
+	matched, err = regexp.MatchString("^[a-zA-Z0-9]{3,5}$", ca.symbol)
+	if err != nil {
+		return err
+	}
+	if !matched {
+		return errors.New("The length of `name` must between 3 to 5, and the characters must be littles or numbers")
+	}
+
+	if ca.symbol == "dsb" || ca.symbol == "DSB" {
+		return errors.New("`" + ca.symbol + "` has been kept")
+	}
+
 	s := fmt.Sprintf("%0128x", ca.signer.signature)
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")

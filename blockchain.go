@@ -3,6 +3,7 @@
 package main
 
 import (
+	"math"
 	"strconv"
 	"net"
 	"net/http"
@@ -144,6 +145,11 @@ func blockchainHandler(w http.ResponseWriter, req *http.Request) {
 	number, err := strconv.Atoi(n)
 	if err != nil {
 		writeResult(w, responseResult_T{false, err.Error(), nil})
+		return
+	}
+
+	if number <= 0 || number > math.MaxUint32 {
+		writeResult(w, responseResult_T{false, "number must be between 0 and 4294967296", nil})
 		return
 	}
 
