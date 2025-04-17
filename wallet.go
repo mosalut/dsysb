@@ -1,3 +1,5 @@
+// dsysb
+
 package main
 
 import (
@@ -18,13 +20,6 @@ var walletDB *leveldb.DB
 type wallet_T struct {
 	privateKey ecdsa.PrivateKey
 }
-
-// TODO
-/*
-func (w wallet_T) verify(, dataStr string) []byte {
-	data, _ := hex.DecodeString(dataStr)
-}
-*/
 
 func HashPubKey(pubKey []byte) []byte {
 	publicSHA256 := sha256.Sum256(pubKey)

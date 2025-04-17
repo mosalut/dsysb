@@ -176,6 +176,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 					return
 				}
 				blockchainSync.over()
+				broadcast(p2p_add_block_event, body[29:])
 			}
 		} else {
 			blockchainSync.targetIndex = blockIndex
@@ -227,7 +228,6 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 
 		startIndex := binary.LittleEndian.Uint32(body[61:])
 
-		// TODO
 		err := rollbackChain(startIndex)
 		if err != nil {
 			blockchainSync.over()
@@ -329,7 +329,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		postId := fmt.Sprintf("%056x", body[:28])
 		print(log_debug, "postId:", postId)
 		print(log_debug, "hi:", string(body[29:]))
-		broadcast(p2p_debug, body)
+		broadcast(p2p_debug, body[29:])
 	}
 }
 

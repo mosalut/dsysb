@@ -14,7 +14,6 @@ import (
 const dsysbId = "0000000000000000000000000000000000000000000000000000000000000000"
 
 type state_T struct {
-	bits uint32
 	assets assetPool_T
 	accounts map[string]*account_T
 }
@@ -27,15 +26,11 @@ func (state *state_T)encode() []byte {
 		accountLength += 14 + len(account.assets) * 40 + 34 // 14 = 8 + 4 + 2, 40 = 32 + 8
 	}
 
-	length := 8 + assetLength + accountLength // 8 = 4 + 4
+	length := 4 + assetLength + accountLength
 	bs := make([]byte, length, length)
 	var start int
 
-	end := 4
-	binary.LittleEndian.PutUint32(bs[start:end], state.bits)
-
-	start = end
-	end += assetLength
+	end := assetLength
 	copy(bs[start:end], state.assets.encode())
 
 	acsLength := len(state.accounts)
@@ -79,22 +74,17 @@ func (state *state_T)encode() []byte {
 }
 
 func decodeState(bs []byte) *state_T {
-	var start int
+	var start, end int
 
-	end := 4
 	state := &state_T{}
-	state.bits = binary.LittleEndian.Uint32(bs[start:end])
 
 	start = len(bs) - 4
 	accountBytesLength := int(binary.LittleEndian.Uint32(bs[start:]))
 	assetEndPosition := len(bs) - accountBytesLength - 4
 
-	start = end
-	state.assets = decodeAssetPool(bs[start:assetEndPosition])
+	state.assets = decodeAssetPool(bs[0:assetEndPosition])
 
 	state.accounts = make(map[string]*account_T)
-
-	start = len(bs) - 4
 
 	var assetsInAccount int
 
@@ -106,7 +96,6 @@ func decodeState(bs []byte) *state_T {
 
 		end = start
 		start -= 12 + assetsInAccount * 40
-
 		accountBytes := bs[start:end]
 
 		end = start
@@ -123,7 +112,7 @@ func (state *state_T)hash() [32]byte {
 
 func (state *state_T)String() string {
 	value := ("state:\n")
-	value += fmt.Sprintf("\tbits: %x\n", state.bits)
+//	value += fmt.Sprintf("\tbits: %x\n", state.bits)
 	value += "\tassets:\n"
 	for _, asset := range state.assets {
 		value += fmt.Sprintf("\t\t%v\n", asset)
@@ -139,7 +128,7 @@ func (state *state_T)String() string {
 }
 
 var firstState = &state_T {
-	binary.LittleEndian.Uint32(difficult_1_target[:]),
+//	binary.LittleEndian.Uint32(difficult_1_target[:]),
 	make(assetPool_T),
 	make(map[string]*account_T),
 }
@@ -162,7 +151,7 @@ func getState() (*state_T, error) {
 	}
 
 	/* keepit
-	indexB := []byte{0, 0, 0, 0}
+//	indexB := []byte{0, 0, 0, 0}
 	return firstState, nil
 	*/
 

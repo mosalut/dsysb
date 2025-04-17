@@ -4,6 +4,7 @@ import (
 	"flag"
 	"strconv"
 	"log"
+//	"fmt"
 
 	"github.com/mosalut/q2p"
 )
@@ -60,6 +61,19 @@ func main() {
 		log.Fatal(err)
 	}
 	print(log_debug, "conn:", peer.Conn)
+
+	/*
+	fmt.Println("difficult_1_target")
+	fmt.Printf("%x\n", difficult_1_target)
+
+	target := bitsToTarget(difficult_1_target[:])
+	fmt.Println("target")
+	fmt.Printf("%064x\n", target)
+
+	bits := targetToBits(target)
+	fmt.Println("bits")
+	fmt.Printf("%x\n", bits)
+	*/
 
 	runHttpServer(cmdFlag.httpPort)
 }

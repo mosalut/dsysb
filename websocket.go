@@ -127,6 +127,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			indexLength := bh_length + len(blockBody.encode())
 			block := &block_T { wsAddBlockData.head, blockBody, wsAddBlockData.poolCache.state, uint32(indexLength)}
 
+			// keepit
 			// TODO block validation
 			lBlock, err := getHashBlock()
 			if err != nil {
@@ -233,7 +234,6 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TODO DEBUG
 func makeMinedBlockData() (*socketData_T, error) {
 	cache, err := poolToCache()
 	if err != nil {

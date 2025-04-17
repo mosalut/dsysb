@@ -28,6 +28,8 @@ var errBlockIdNotMatch = errors.New("block hash and index are not match.")
 var errBlockHashFormat = errors.New("invalid block hash format.")
 var errPrevHashNotMatch = errors.New("state prev hash and block prev hash are not match.")
 var errZeroBlock = errors.New("Zero block")
+var errBlockHashing = errors.New("block hash and it's data are not match")
+var errBits = errors.New("the bits are not match")
 
 // Head:
 // 	[:36] - prev hash
@@ -213,16 +215,52 @@ func getBlock(hashBytes []byte) (*block_T, error) {
 }
 
 func (block *block_T)Append() error {
-	prevBlock, err := getHashBlock()
+	err := block.validate()
 	if err != nil {
-		print(log_error, err)
 		return err
 	}
+
+	batch := &leveldb.Batch{}
+	batch.Put([]byte("index"), block.head.hash[32:])
+	batch.Put(block.head.hash[32:], block.encode())
+
+	err = chainDB.Write(batch, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (block *block_T)validate() error {
+	prevBlock, err := getHashBlock()
+	if err != nil {
+		return err
+	}
+
 	prevHash := fmt.Sprintf("%072x", prevBlock.head.hash)
 	blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
 
 	if prevHash != blockPrevHash {
 		return errPrevHashNotMatch
+	}
+
+	h1 := fmt.Sprintf("%064x", block.head.hashing())
+	h2 := fmt.Sprintf("%064x", block.head.hash[:32])
+	if h1 != h2 {
+		return errBlockHashing
+	}
+
+	err = adjustTarget(prevBlock)
+	if err != nil {
+		return err
+	}
+
+	bits0 := binary.LittleEndian.Uint32(prevBlock.head.bits[:])
+	bits1 := binary.LittleEndian.Uint32(block.head.bits[:])
+
+	if bits0 != bits1 {
+		return errBits
 	}
 
 	for _, tx := range block.body.transactions {
@@ -232,11 +270,9 @@ func (block *block_T)Append() error {
 		}
 	}
 
-	batch := &leveldb.Batch{}
-	batch.Put([]byte("index"), block.head.hash[32:])
-	batch.Put(block.head.hash[32:], block.encode())
+	// TODO tx root state root
 
-	err = chainDB.Write(batch, nil)
+	err = adjustTarget(prevBlock)
 	if err != nil {
 		return err
 	}
