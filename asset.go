@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -197,8 +198,8 @@ func (ca *createAsset_T) encode() []byte {
 func decodeCreateAsset(bs []byte) *createAsset_T {
 	ca := &createAsset_T{}
 
-	ca.name = string(bs[:asset_symbol_position])
-	ca.symbol = string(bs[asset_symbol_position:asset_decimals_position])
+	ca.name = string(bytes.Trim(bs[:asset_symbol_position], "\x00 \t\n\r"))
+	ca.symbol = string(bytes.Trim(bs[asset_symbol_position:asset_decimals_position], "\x00 \t\n\r"))
 	ca.decimals = uint8(bs[asset_decimals_position])
 	ca.totalSupply = binary.LittleEndian.Uint64(bs[asset_total_supply_position:asset_price_position])
 	ca.price = binary.LittleEndian.Uint64(bs[asset_price_position:asset_blocks_position])
@@ -229,7 +230,7 @@ func (ca *createAsset_T) validate(fromP2p bool) error {
 		return err
 	}
 	if !matched {
-		return errors.New("The length of `name` must between 3 to 5, and the characters must be littles or numbers")
+		return errors.New("The length of `symbol` must between 3 to 5, and the characters must be littles or numbers")
 	}
 
 	if ca.symbol == "dsb" || ca.symbol == "DSB" {
