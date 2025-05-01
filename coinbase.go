@@ -25,10 +25,6 @@ func (tx *coinbase_T) hash() [32]byte {
 	return sha256.Sum256(tx.encode())
 }
 
-func (coinbase *coinbase_T) getType() uint8 {
-	return type_coinbase
-}
-
 func (coinbase *coinbase_T) encode() []byte {
 	bs := make([]byte, coinbase_length, coinbase_length)
 	copy(bs[:coinbase_amount_position], []byte(coinbase.to))
@@ -52,15 +48,26 @@ func (coinbase *coinbase_T) validate(fromP2p bool) error {
 		return errors.New("illage type")
 	}
 
-	if coinbase.amount != 5e10 {
-		return errors.New("Coinbase amount wrong")
-	}
-
 	return nil
 }
 
 func (coinbase *coinbase_T) verifySign() bool {
 	return true
+}
+
+func (coinbase *coinbase_T) count(state *state_T, c *coinbase_T, index int) error {
+	_, ok := state.accounts[coinbase.to]
+	if !ok {
+		state.accounts[coinbase.to] = &account_T {
+			coinbase.amount,
+			make(map[string]uint64),
+			0,
+		}
+	} else {
+		state.accounts[coinbase.to].balance += coinbase.amount
+	}
+
+	return nil
 }
 
 func (tx *coinbase_T) String() string {

@@ -150,8 +150,9 @@ func getState() (*state_T, error) {
 		return nil, err
 	}
 
-	/* keepit
+	/* keepit */
 //	indexB := []byte{0, 0, 0, 0}
+	/*
 	return firstState, nil
 	*/
 

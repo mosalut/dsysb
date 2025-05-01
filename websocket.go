@@ -196,6 +196,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 
 				continue
 			}
+			// ------------------------------------------
 
 			batch := &leveldb.Batch{}
 			batch.Put([]byte("index"), block.head.hash[32:])

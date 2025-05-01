@@ -24,10 +24,11 @@ const (
 	asset_blocks_position = 32
 	asset_remain_position = 36
 
-	create_asset_length = 202
+	create_asset_length = 210
 	create_asset_from_position = 36
 	create_asset_nonce_position = 70
-	create_asset_signer_position = 74
+	create_asset_fee_position = 74
+	create_asset_signer_position = 82
 )
 
 // The `name` is the asset Name.
@@ -159,6 +160,7 @@ type createAsset_T struct {
 	blocks uint32
 	from string
 	nonce uint32
+	fee uint64
 	signer *signer_T
 }
 
@@ -171,13 +173,10 @@ func (tx *createAsset_T) hash() [32]byte {
 	binary.LittleEndian.PutUint64(bs[asset_price_position:asset_blocks_position], tx.price)
 	binary.LittleEndian.PutUint32(bs[asset_blocks_position:create_asset_from_position], tx.blocks)
 	copy(bs[create_asset_from_position:create_asset_nonce_position], []byte(tx.from))
-	binary.LittleEndian.PutUint32(bs[create_asset_nonce_position:create_asset_signer_position], tx.nonce)
+	binary.LittleEndian.PutUint32(bs[create_asset_nonce_position:create_asset_fee_position], tx.nonce)
+	binary.LittleEndian.PutUint64(bs[create_asset_fee_position:create_asset_signer_position], tx.fee)
 
 	return sha256.Sum256(bs)
-}
-
-func (ca *createAsset_T) getType() uint8 {
-	return type_create
 }
 
 func (ca *createAsset_T) encode() []byte {
@@ -189,7 +188,8 @@ func (ca *createAsset_T) encode() []byte {
 	binary.LittleEndian.PutUint64(bs[asset_price_position:asset_blocks_position], ca.price)
 	binary.LittleEndian.PutUint32(bs[asset_blocks_position:create_asset_from_position], ca.blocks)
 	copy(bs[create_asset_from_position:create_asset_nonce_position], []byte(ca.from))
-	binary.LittleEndian.PutUint32(bs[create_asset_nonce_position:create_asset_signer_position], ca.nonce)
+	binary.LittleEndian.PutUint32(bs[create_asset_nonce_position:create_asset_fee_position], ca.nonce)
+	binary.LittleEndian.PutUint64(bs[create_asset_fee_position:create_asset_signer_position], ca.fee)
 	copy(bs[create_asset_signer_position:], ca.signer.encode())
 
 	return bs
@@ -205,7 +205,8 @@ func decodeCreateAsset(bs []byte) *createAsset_T {
 	ca.price = binary.LittleEndian.Uint64(bs[asset_price_position:asset_blocks_position])
 	ca.blocks = binary.LittleEndian.Uint32(bs[asset_blocks_position:create_asset_from_position])
 	ca.from = string(bs[create_asset_from_position:create_asset_nonce_position])
-	ca.nonce = binary.LittleEndian.Uint32(bs[create_asset_nonce_position:create_asset_signer_position])
+	ca.nonce = binary.LittleEndian.Uint32(bs[create_asset_nonce_position:create_asset_fee_position])
+	ca.fee = binary.LittleEndian.Uint64(bs[create_asset_fee_position:create_asset_signer_position])
 	ca.signer = decodeSigner(bs[create_asset_signer_position:])
 
 
@@ -285,6 +286,49 @@ func (ca *createAsset_T) verifySign() bool {
 	return ok
 }
 
+func (ca *createAsset_T) count(state *state_T, coinbase *coinbase_T, index int) error {
+	asset := &asset_T {
+		ca.name,
+		ca.symbol,
+		ca.decimals,
+		ca.totalSupply,
+		ca.price,
+		ca.blocks,
+		ca.blocks,
+	}
+
+	assetIdB := asset.hash()
+	assetId := fmt.Sprintf("%064x", assetIdB)
+	fmt.Println("assetId:", assetId)
+	_, ok := state.assets[assetId]
+	fmt.Println(ok)
+	if ok {
+		return errors.New("Asset is already in")
+	}
+
+	account, ok := state.accounts[ca.from]
+	if !ok {
+		return errors.New("CA from is empty address")
+	}
+
+	holdAmount := ca.price * uint64(ca.blocks)
+	totalSpend := holdAmount + ca.fee
+
+	if account.balance < totalSpend {
+		return errors.New("not enough minerals")
+	}
+
+	state.assets[assetId] = asset
+
+	account.balance -= totalSpend
+//	state.accounts[*address].balance += ca.fee
+	coinbase.amount += ca.fee
+	account.assets[assetId] = ca.totalSupply
+	account.nonce = ca.nonce
+
+	return nil
+}
+
 func (ca *createAsset_T) String() string {
 	return fmt.Sprintf(
 		"\tname: %s\n" +
@@ -295,5 +339,6 @@ func (ca *createAsset_T) String() string {
 		"\tblocks: %d\n" +
 		"\tfrom: %s\n" +
 		"\tnonce: %d\n" +
-		"%s", ca.name, ca.symbol, ca.decimals, ca.totalSupply, ca.price, ca.blocks, ca.from, ca.nonce, ca.signer)
+		"\tfee: %d\n" +
+		"%s", ca.name, ca.symbol, ca.decimals, ca.totalSupply, ca.price, ca.blocks, ca.from, ca.nonce, ca.fee, ca.signer)
 }

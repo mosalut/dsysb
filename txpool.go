@@ -126,10 +126,10 @@ func poolToCache() (*poolCache_T, error) {
 	if len(transactionPool) <= 511 {
 		return &poolCache_T {
 			prevHash,
-		//	difficult_1_target, // keep it
+		//	difficult_1_target, // keepit
 			block.head.bits,
+		//	firstState, // keepit
 			block.state,
-		//	firstState, // keep it
 			transactionPool,
 		}, nil
 	}

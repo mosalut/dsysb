@@ -29,7 +29,10 @@ var errBlockHashFormat = errors.New("invalid block hash format.")
 var errPrevHashNotMatch = errors.New("state prev hash and block prev hash are not match.")
 var errZeroBlock = errors.New("Zero block")
 var errBlockHashing = errors.New("block hash and it's data are not match")
-var errBits = errors.New("the bits are not match")
+var errBits = errors.New("The bits are not match")
+var errTransactionRootHash = errors.New("The transaction root and it's hash root are not match")
+var errStateRootHash = errors.New("The state and it's hash root are not match")
+var errStateRoot = errors.New("The state roots are not match")
 
 // Head:
 // 	[:36] - prev hash
@@ -263,14 +266,43 @@ func (block *block_T)validate() error {
 		return errBits
 	}
 
-	for _, tx := range block.body.transactions {
+	if hex.EncodeToString(newMerkleTree(block.body.transactions).data[:]) != hex.EncodeToString(block.head.transactionRoot[:]) {
+		return errTransactionRootHash
+	}
+
+	stateHashB := block.state.hash()
+	stateHashS := hex.EncodeToString(stateHashB[:])
+	if stateHashS != hex.EncodeToString(block.head.stateRoot[:]) {
+		return errStateRoot
+	}
+
+	for k, tx := range block.body.transactions[1:] {
 		err = tx.validate(true)
+		if err != nil{
+			return err
+		}
+
+		err = tx.count(prevBlock.state, block.body.transactions[0].(*coinbase_T), k)
 		if err != nil{
 			return err
 		}
 	}
 
-	// TODO tx root state root
+	err = block.body.transactions[0].validate(true)
+	if err != nil{
+		return err
+	}
+
+	err = block.body.transactions[0].count(prevBlock.state, nil, 0)
+	if err != nil{
+		return err
+	}
+
+	stateHashB = prevBlock.state.hash()
+	stateHash := hex.EncodeToString(stateHashB[:])
+	if stateHashS != stateHash {
+		return errStateRoot
+	}
 
 	err = adjustTarget(prevBlock)
 	if err != nil {

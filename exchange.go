@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	exchange_length = 480
+	exchange_length = 496
 )
 
 type exchange_T [2]*transfer_T
@@ -23,10 +23,6 @@ func (ex *exchange_T) hash() [32]byte {
 	copy(bs[:transfer_signer_position], ex[0].encodeWithoutSigner())
 	copy(bs[transfer_signer_position:], ex[1].encodeWithoutSigner())
 	return sha256.Sum256(bs)
-}
-
-func (ex *exchange_T) getType() uint8 {
-	return type_exchange
 }
 
 func (ex *exchange_T)encode() []byte {
@@ -47,7 +43,7 @@ func decodeExchange(bs []byte) *exchange_T {
 
 func (ex *exchange_T) validate(fromP2p bool) error {
 	if ex[0].from != ex[1].to || ex[0].to != ex[1].from {
-		return errors.New("Exchange address not match")
+		return errors.New("The exchange addresses are not match")
 	}
 
 	state, err := getState()
@@ -113,6 +109,54 @@ func (ex *exchange_T) verifySign() bool {
 	}
 
 	return true
+}
+
+func (ex *exchange_T) count(state *state_T, coinbase *coinbase_T, index int) error {
+	for _, transfer := range ex {
+		accountFrom, ok := state.accounts[transfer.from]
+		if !ok {
+			return errors.New("Transfer from is empty address")
+		}
+
+		accountTo, ok := state.accounts[transfer.to]
+		if !ok {
+			state.accounts[transfer.to] = &account_T{}
+			accountTo = state.accounts[transfer.to]
+			accountTo.assets = make(map[string]uint64)
+		}
+
+		id := fmt.Sprintf("%064x", transfer.assetId)
+
+		if id == dsysbId {
+			if accountFrom.balance < transfer.amount {
+				return errors.New("not enough minerals")
+			}
+
+			accountFrom.balance, accountTo.balance = accountFrom.balance - transfer.amount, accountTo.balance + transfer.amount
+		} else {
+			balance, ok := accountFrom.assets[id]
+			if !ok {
+				return errors.New("There is not this asset")
+			}
+
+			if balance < transfer.amount {
+				return errors.New("not enough minerals")
+			}
+
+			_, ok = accountTo.assets[id]
+			if !ok {
+				accountTo.assets[id] = 0
+			}
+			accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
+		}
+
+		accountFrom.balance -= transfer.fee
+	//	state.accounts[*address].balance += transfer.fee
+		coinbase.amount += transfer.fee
+		accountFrom.nonce = transfer.nonce
+	}
+
+	return nil
 }
 
 func (ex *exchange_T) String() string {

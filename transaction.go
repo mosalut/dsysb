@@ -19,10 +19,10 @@ const (
 
 type transaction_I interface {
 	hash() [32]byte
-	getType() uint8
 	encode() []byte
 	validate(bool) error
 	verifySign() bool
+	count(*state_T, *coinbase_T, int) error
 	String() string
 }
 
