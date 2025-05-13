@@ -40,6 +40,11 @@ func decodeRawTransaction(bs []byte) transaction_I {
 	case exchange_length:
 		tx = decodeExchange(bs)
 	default:
+		ok := isDeploy(bs)
+		if ok {
+			tx = decodeDeployTask(bs)
+			break
+		}
 		print(log_error, "Wrong type")
 	}
 

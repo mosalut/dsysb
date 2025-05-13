@@ -5,7 +5,6 @@ package main
 import (
 	"encoding/hex"
 	"net/http"
-	"fmt"
 
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -128,19 +127,17 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			block := &block_T { wsAddBlockData.head, blockBody, wsAddBlockData.poolCache.state, uint32(indexLength)}
 
 			// keepit
-			// TODO block validation
+			//	TODO block validation
 			lBlock, err := getHashBlock()
 			if err != nil {
 				print(log_error, err)
 				continue
 			}
 
-			blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
-			lBlockHash := fmt.Sprintf("%072x", lBlock.head.hash)
+			blockPrevHash := hex.EncodeToString(block.head.prevHash[:])
+			lBlockHash := hex.EncodeToString(lBlock.head.hash[:])
 
 			if blockPrevHash != lBlockHash {
-				fmt.Println(blockPrevHash)
-				fmt.Println(lBlockHash)
 				print(log_error, "The hash and prev hash are not match.")
 
 				socketData, err := makeMinedBlockData()
@@ -178,7 +175,8 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			if fmt.Sprintf("%064x", block.state.hash()) != fmt.Sprintf("%064x", block.head.stateRoot) {
+			h := block.state.hash()
+			if hex.EncodeToString(h[:]) != hex.EncodeToString(block.head.stateRoot[:]) {
 				print(log_warning, "WS: The stateRoot and it's data are not match.")
 
 				socketData, err := makeMinedBlockData()

@@ -9,6 +9,7 @@ import (
 	"crypto/elliptic"
 	"math/big"
 	"encoding/binary"
+	"encoding/hex"
 	"regexp"
 	"net/http"
 	"errors"
@@ -30,6 +31,8 @@ const (
 	create_asset_fee_position = 74
 	create_asset_signer_position = 82
 )
+
+const dsysbId = "0000000000000000000000000000000000000000000000000000000000000000"
 
 // The `name` is the asset Name.
 // The `symbol` is the asset Symbol.
@@ -114,7 +117,8 @@ func decodeAssetPool(bs []byte) assetPool_T {
 	length := lengthByte / asset_length
 	for i := 0 ; i < length; i++ {
 		asset := decodeAsset(bs[i * asset_length:(i + 1) * asset_length])
-		pool[fmt.Sprintf("%064x", asset.hash())] = asset
+		h := asset.hash()
+		pool[hex.EncodeToString(h[:])] = asset
 	}
 
 	return pool
@@ -146,7 +150,7 @@ func listAssetsHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fmt.Println(state.assets)
+//	fmt.Println(state.assets)
 
 	writeResult(w, responseResult_T{true, "ok", state.assets.encode()})
 }
@@ -238,7 +242,7 @@ func (ca *createAsset_T) validate(fromP2p bool) error {
 		return errors.New("`" + ca.symbol + "` has been kept")
 	}
 
-	s := fmt.Sprintf("%0128x", ca.signer.signature)
+	s := hex.EncodeToString(ca.signer.signature[:])
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")
 	}
@@ -249,7 +253,8 @@ func (ca *createAsset_T) validate(fromP2p bool) error {
 	// replay attack
 	for _, signature := range signatures {
 		if s == signature {
-			return errors.New("Replay attack: hash:" + fmt.Sprintf("%064x", ca.hash()) + " signature: " + s)
+			h := ca.hash()
+			return errors.New("Replay attack: hash:" + hex.EncodeToString(h[:]) + " signature: " + s)
 		}
 	}
 	signatures = append(signatures, s)
@@ -280,10 +285,8 @@ func (ca *createAsset_T) validate(fromP2p bool) error {
 
 func (ca *createAsset_T) verifySign() bool {
 	publicKey := ecdsa.PublicKey{elliptic.P256(), ca.signer.x, ca.signer.y}
-	fmt.Println(publicKey)
 	txid := ca.hash()
-	ok := ecdsa.Verify(&publicKey, txid[:], big.NewInt(0).SetBytes(ca.signer.signature[:32]), big.NewInt(0).SetBytes(ca.signer.signature[32:]))
-	return ok
+	return ecdsa.Verify(&publicKey, txid[:], big.NewInt(0).SetBytes(ca.signer.signature[:32]), big.NewInt(0).SetBytes(ca.signer.signature[32:]))
 }
 
 func (ca *createAsset_T) count(state *state_T, coinbase *coinbase_T, index int) error {
@@ -298,7 +301,7 @@ func (ca *createAsset_T) count(state *state_T, coinbase *coinbase_T, index int) 
 	}
 
 	assetIdB := asset.hash()
-	assetId := fmt.Sprintf("%064x", assetIdB)
+	assetId := hex.EncodeToString(assetIdB[:])
 	fmt.Println("assetId:", assetId)
 	_, ok := state.assets[assetId]
 	fmt.Println(ok)
@@ -321,7 +324,6 @@ func (ca *createAsset_T) count(state *state_T, coinbase *coinbase_T, index int) 
 	state.assets[assetId] = asset
 
 	account.balance -= totalSpend
-//	state.accounts[*address].balance += ca.fee
 	coinbase.amount += ca.fee
 	account.assets[assetId] = ca.totalSupply
 	account.nonce = ca.nonce

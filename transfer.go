@@ -8,6 +8,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 )
@@ -48,7 +49,6 @@ func (transfer *transfer_T) encode() []byte {
 	binary.LittleEndian.PutUint64(bs[transfer_fee_position:transfer_signer_position], transfer.fee)
 	copy(bs[transfer_signer_position:], transfer.signer.encode())
 
-
 	return bs
 }
 
@@ -82,7 +82,7 @@ func (transfer *transfer_T) validate(fromP2p bool) error {
 		return errors.New("Transfer to self is not allowed")
 	}
 
-	s := fmt.Sprintf("%0128x", transfer.signer.signature)
+	s := hex.EncodeToString(transfer.signer.signature[:])
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")
 	}
@@ -134,8 +134,7 @@ func (transfer *transfer_T) validate(fromP2p bool) error {
 func (transfer *transfer_T) verifySign() bool {
 	publicKey := ecdsa.PublicKey{elliptic.P256(), transfer.signer.x, transfer.signer.y}
 	txid := transfer.hash()
-	ok := ecdsa.Verify(&publicKey, txid[:], big.NewInt(0).SetBytes(transfer.signer.signature[:32]), big.NewInt(0).SetBytes(transfer.signer.signature[32:]))
-	return ok
+	return ecdsa.Verify(&publicKey, txid[:], big.NewInt(0).SetBytes(transfer.signer.signature[:32]), big.NewInt(0).SetBytes(transfer.signer.signature[32:]))
 }
 
 func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index int) error {

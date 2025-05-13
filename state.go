@@ -11,11 +11,10 @@ import (
 	"fmt"
 )
 
-const dsysbId = "0000000000000000000000000000000000000000000000000000000000000000"
-
 type state_T struct {
 	assets assetPool_T
 	accounts map[string]*account_T
+	tasks []*task_T
 }
 
 func (state *state_T)encode() []byte {
@@ -39,6 +38,7 @@ func (state *state_T)encode() []byte {
 		keys = append(keys, k)
 	}
 
+	// Cause It can not ensure map's order in each reading
 	sort.Slice(keys, func(i, j int) bool {
 		bsi := []byte(keys[i])
 		bsj := []byte(keys[j])
@@ -69,17 +69,53 @@ func (state *state_T)encode() []byte {
 
 	start = end
 
+	fmt.Println("accountLength:", accountLength)
 	binary.LittleEndian.PutUint32(bs[start:], uint32(accountLength))
+
+	// encoding tasks
+	var tasksBytesLength uint32
+	for _, task := range state.tasks {
+		taskBytes := task.encode()
+		leng := len(taskBytes)
+		tasksBytesLength += uint32(leng) + 2
+		lengB := make([]byte, 2, 2)
+		binary.LittleEndian.PutUint16(lengB, uint16(leng))
+		bs = append(bs, lengB...)
+		bs = append(bs, taskBytes...)
+	}
+
+	tasksBytesLengthB := make([]byte, 4, 4)
+	binary.LittleEndian.PutUint32(tasksBytesLengthB, tasksBytesLength)
+	bs = append(bs, tasksBytesLengthB...)
+
 	return bs
 }
 
 func decodeState(bs []byte) *state_T {
+	fmt.Println("bs length:", len(bs))
 	var start, end int
 
 	state := &state_T{}
+	state.tasks = []*task_T{}
 
 	start = len(bs) - 4
-	accountBytesLength := int(binary.LittleEndian.Uint32(bs[start:]))
+	tasksBytesLength := int(binary.LittleEndian.Uint32(bs[start:]))
+	tasksStartPosition := len(bs) - tasksBytesLength - 4
+
+	currentStart := tasksStartPosition
+	currentEnd := currentStart + 2
+	for currentEnd < start {
+		taskBLength := int(binary.LittleEndian.Uint16(bs[currentStart:currentEnd]))
+		state.tasks = append(state.tasks, decodeTask(bs[currentEnd:taskBLength]))
+		currentStart = currentEnd + taskBLength
+		currentEnd = currentStart + 2
+	}
+
+	start = tasksStartPosition - 4
+	fmt.Println("start:", start)
+	fmt.Println("tasksStartPosition:", tasksStartPosition)
+	accountBytesLength := int(binary.LittleEndian.Uint32(bs[start:tasksStartPosition]))
+	fmt.Println("accountBytesLength:", accountBytesLength)
 	assetEndPosition := len(bs) - accountBytesLength - 4
 
 	state.assets = decodeAssetPool(bs[0:assetEndPosition])
@@ -112,7 +148,6 @@ func (state *state_T)hash() [32]byte {
 
 func (state *state_T)String() string {
 	value := ("state:\n")
-//	value += fmt.Sprintf("\tbits: %x\n", state.bits)
 	value += "\tassets:\n"
 	for _, asset := range state.assets {
 		value += fmt.Sprintf("\t\t%v\n", asset)
@@ -123,6 +158,12 @@ func (state *state_T)String() string {
 		value += fmt.Sprintf("\t\t%s: %v\n", k, account)
 	}
 
+	value += "\ttasks:\n"
+	for _, task := range state.tasks {
+		value += fmt.Sprintf("\t\t%s:\n", task.hash())
+		value += fmt.Sprintf("\t\t%v:\n", task)
+	}
+
 	return value
 
 }
@@ -131,6 +172,7 @@ var firstState = &state_T {
 //	binary.LittleEndian.Uint32(difficult_1_target[:]),
 	make(assetPool_T),
 	make(map[string]*account_T),
+	make([]*task_T, 0),
 }
 
 func getIndex() (uint32, error) {
@@ -150,9 +192,8 @@ func getState() (*state_T, error) {
 		return nil, err
 	}
 
-	/* keepit */
+	/* keepit
 //	indexB := []byte{0, 0, 0, 0}
-	/*
 	return firstState, nil
 	*/
 

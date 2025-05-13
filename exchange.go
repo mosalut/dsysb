@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"encoding/hex"
 	"math/big"
 	"errors"
 	"fmt"
@@ -70,7 +71,7 @@ func (ex *exchange_T) validate(fromP2p bool) error {
 
 		// proccess replay attack
 		for _, signature := range signatures {
-			s := fmt.Sprintf("%0128x", transfer.signer.signature)
+			s := hex.EncodeToString(transfer.signer.signature[:])
 			if s == signature {
 				return errors.New(fmt.Sprintf("%064x", ex.hash()) + " replay: " + s)
 			}
