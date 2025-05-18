@@ -34,6 +34,15 @@ func (coinbase *coinbase_T) encode() []byte {
 	return bs
 }
 
+func (tx *coinbase_T) encodeForPool() []byte {
+	length := coinbase_length + 2
+	bs := make([]byte, length, length)
+	binary.LittleEndian.PutUint16(bs[:2], coinbase_length)
+	copy(bs[2:], tx.encode())
+
+	return bs
+}
+
 func decodeCoinbase(bs []byte) *coinbase_T {
 	coinbase := &coinbase_T{}
 	coinbase.to = string(bs[:coinbase_amount_position])

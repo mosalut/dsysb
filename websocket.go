@@ -3,11 +3,12 @@
 package main
 
 import (
+	/* keepfunc */
 	"encoding/hex"
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb" // keepfunc
 )
 
 const (
@@ -48,6 +49,8 @@ func decodeWsAddBlockData(bs []byte) *wsAddBlockData_T {
 var upgrader = websocket.Upgrader{}
 
 var minerConns = make(map[*websocket.Conn]interface{})
+
+/* keepfunc */
 func socketHandler(w http.ResponseWriter, r *http.Request) {
 	// Upgrade our raw HTTP connection to a websocket based one
 	conn, err := upgrader.Upgrade(w, r, nil)

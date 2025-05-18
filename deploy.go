@@ -69,6 +69,16 @@ func (tx *deployTask_T) encode() []byte {
 	return bs
 }
 
+func (tx *deployTask_T) encodeForPool() []byte {
+	length0 := 178 + len(tx.instructs) + len(tx.vData)
+	length := length0 + 2
+	bs := make([]byte, length, length)
+	binary.LittleEndian.PutUint16(bs[:2], uint16(length0))
+	copy(bs[2:], tx.encode())
+
+	return bs
+}
+
 func decodeDeployTask(bs []byte) *deployTask_T {
 	tx := &deployTask_T{}
 	instructsLength := binary.LittleEndian.Uint16(bs[:2])

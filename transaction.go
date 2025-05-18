@@ -23,6 +23,7 @@ type transaction_I interface {
 	validate(bool) error
 	verifySign() bool
 	count(*state_T, *coinbase_T, int) error
+	encodeForPool() []byte
 	String() string
 }
 

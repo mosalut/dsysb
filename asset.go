@@ -131,7 +131,7 @@ type prolong_T struct {
 	from [34]byte
 }
 
-func listAssetsHandler(w http.ResponseWriter, req *http.Request) {
+func assetsHandler(w http.ResponseWriter, req *http.Request) {
 	cors(w)
 
 	switch req.Method {
@@ -150,9 +150,42 @@ func listAssetsHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-//	fmt.Println(state.assets)
-
 	writeResult(w, responseResult_T{true, "ok", state.assets.encode()})
+}
+
+func assetHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	assetId := values.Get("id")
+
+	state, err := getState()
+	if err != nil {
+		print(log_error, err)
+		writeResult(w, responseResult_T{false, "dsysb inner error", nil})
+		return
+	}
+
+	for _, asset := range state.assets {
+		h := asset.hash()
+		aId := hex.EncodeToString(h[:])
+
+		if aId == assetId {
+			writeResult(w, responseResult_T{true, "ok", asset.encode()})
+			return
+		}
+	}
+
+	writeResult(w, responseResult_T{false, "asset " + assetId + " does not exist", nil})
 }
 
 type createAsset_T struct {
@@ -195,6 +228,15 @@ func (ca *createAsset_T) encode() []byte {
 	binary.LittleEndian.PutUint32(bs[create_asset_nonce_position:create_asset_fee_position], ca.nonce)
 	binary.LittleEndian.PutUint64(bs[create_asset_fee_position:create_asset_signer_position], ca.fee)
 	copy(bs[create_asset_signer_position:], ca.signer.encode())
+
+	return bs
+}
+
+func (tx *createAsset_T) encodeForPool() []byte {
+	length := create_asset_length + 2
+	bs := make([]byte, length, length)
+	binary.LittleEndian.PutUint16(bs[:2], create_asset_length)
+	copy(bs[2:], tx.encode())
 
 	return bs
 }
@@ -302,9 +344,7 @@ func (ca *createAsset_T) count(state *state_T, coinbase *coinbase_T, index int) 
 
 	assetIdB := asset.hash()
 	assetId := hex.EncodeToString(assetIdB[:])
-	fmt.Println("assetId:", assetId)
 	_, ok := state.assets[assetId]
-	fmt.Println(ok)
 	if ok {
 		return errors.New("Asset is already in")
 	}

@@ -27,3 +27,5 @@ dsysb_log*
 config
 
 *.dat
+
+genesisblock.go

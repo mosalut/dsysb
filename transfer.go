@@ -52,6 +52,15 @@ func (transfer *transfer_T) encode() []byte {
 	return bs
 }
 
+func (transfer *transfer_T) encodeForPool() []byte {
+	length := transfer_length + 2
+	bs := make([]byte, length, length)
+	binary.LittleEndian.PutUint16(bs[:2], transfer_length)
+	copy(bs[2:], transfer.encode())
+
+	return bs
+}
+
 func decodeTransfer(bs []byte) *transfer_T {
 	transfer := &transfer_T{}
 	transfer.from = string(bs[:transfer_to_position])

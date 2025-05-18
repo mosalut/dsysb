@@ -29,7 +29,10 @@ func TestTaskDeploy(t *testing.T) {
 	task := task_T{}
 	task.instructs = []byte{ins_movsb, 0, 0, 6, 0, 5, 0}
 	task.vData = []byte("Hello task!")
-	task.deploy()
+	key := task.deploy()
+	t.Log(key)
+
+	tasks = append(tasks, task)
 	for k, task := range tasks {
 		t.Log(k)
 		t.Log(task.hash())

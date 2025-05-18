@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"encoding/binary"
 	"encoding/hex"
 	"math/big"
 	"errors"
@@ -30,6 +31,15 @@ func (ex *exchange_T)encode() []byte {
 	bs := make([]byte, exchange_length, exchange_length)
 	copy(bs[:transfer_length], ex[0].encode())
 	copy(bs[transfer_length:], ex[1].encode())
+
+	return bs
+}
+
+func (ex *exchange_T)encodeForPool() []byte {
+	length := exchange_length + 2
+	bs := make([]byte, length, length)
+	binary.LittleEndian.PutUint16(bs[:2], exchange_length)
+	copy(bs[2:], ex.encode())
 
 	return bs
 }

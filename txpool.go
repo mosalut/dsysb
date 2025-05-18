@@ -8,18 +8,6 @@ import (
 	"net/http"
 )
 
-var lenTypeM = map[int]uint8{
-	coinbase_length:type_coinbase,
-	create_asset_length:type_create,
-	transfer_length:type_transfer,
-	exchange_length:type_exchange}
-
-var typeLenM = map[uint8]int{
-	type_coinbase:coinbase_length,
-	type_create:create_asset_length,
-	type_transfer:transfer_length,
-	type_exchange:exchange_length}
-
 var poolMutex = &sync.Mutex{}
 
 var signatures = make([]string, 0, 511)
@@ -30,9 +18,8 @@ func (pool txPool_T) encode() []byte {
 	bs := []byte{}
 
 	for _, transaction := range pool {
-		rawTransaction := transaction.encode()
-		bs = append(bs, byte(lenTypeM[len(rawTransaction)]))
-		bs = append(bs, rawTransaction...)
+		rawTransactionForPool := transaction.encodeForPool()
+		bs = append(bs, rawTransactionForPool...)
 	}
 
 	return bs
@@ -44,15 +31,13 @@ func decodeTxPool(bs []byte) txPool_T {
 	var end int
 	var length int
 	pool := make(txPool_T, 0, 512)
-	end = len(bs)
 
-	var typ uint8
 	for start < bsLen {
-		typ = bs[start]
-		start++
-
-		length = typeLenM[typ]
+		end = start + 2
+		length = int(binary.LittleEndian.Uint16(bs[start:end]))
+		start = end
 		end = start + length
+
 		transaction := decodeRawTransaction(bs[start:end])
 		pool = append(pool, transaction)
 
@@ -103,11 +88,11 @@ func decodePoolCache(bs []byte) *poolCache_T {
 	return cache
 }
 
-
+/* keepfunc */
 func poolToCache() (*poolCache_T, error) {
 	var prevHash [36]byte
 
-	/* keepit */
+	// keepit
 	block, err := getHashBlock()
 	if err == errZeroBlock {
 		print(log_warning, err)
@@ -134,7 +119,7 @@ func poolToCache() (*poolCache_T, error) {
 		}, nil
 	}
 
-	/* keepit */
+	// keepit
 	return &poolCache_T {
 		prevHash,
 		block.head.bits,
@@ -143,7 +128,7 @@ func poolToCache() (*poolCache_T, error) {
 	}, nil
 }
 
-func txPool(w http.ResponseWriter, req *http.Request) {
+func txPoolHandler(w http.ResponseWriter, req *http.Request) {
 	cors(w)
 
 	switch req.Method {

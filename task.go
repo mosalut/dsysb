@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
+	"net/http"
 )
 
 const (
@@ -83,11 +83,11 @@ func decodeTask(bs []byte) *task_T {
 	return task
 }
 
-func (task *task_T) deploy() {
+func (task *task_T) deploy() string {
 	h := task.hash()
 	key := hex.EncodeToString(h[:])
 //	tasks = append(tasks, task)
-	fmt.Println(key)
+	return key
 }
 
 func (task *task_T) excute() {
@@ -103,7 +103,6 @@ func (task *task_T) excute() {
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-			fmt.Println(p0, p1, p2)
 			task.movsb(p0, p1, p2)
 		case ins_mov8:
 			ip++
@@ -290,4 +289,94 @@ func (task *task_T) excute() {
 		default:
 		}
 	}
+}
+
+type taskPool_T []*task_T
+
+func (pool taskPool_T) encode() []byte {
+	bs := []byte{}
+	for _, task := range pool {
+		taskBytes := task.encode()
+		leng := len(taskBytes)
+		lengB := make([]byte, 2, 2)
+		binary.LittleEndian.PutUint16(lengB, uint16(leng))
+		bs = append(bs, lengB...)
+		bs = append(bs, taskBytes...)
+	}
+
+	return bs
+}
+
+func decodeTaskPool(bs []byte) taskPool_T {
+	pool := taskPool_T{}
+	var currentStart int
+	currentEnd := currentStart + 2
+	length := len(bs)
+	for currentEnd < length {
+		taskBLength := int(binary.LittleEndian.Uint16(bs[currentStart:currentEnd]))
+		currentStart = currentEnd
+		currentEnd += taskBLength
+		pool = append(pool, decodeTask(bs[currentStart:currentEnd]))
+		currentStart = currentEnd
+		currentEnd = currentEnd + 2
+	}
+
+	return pool
+}
+
+func tasksHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	state, err := getState()
+	if err != nil {
+		print(log_error, err)
+		writeResult(w, responseResult_T{false, "dsysb inner error", nil})
+		return
+	}
+
+	writeResult(w, responseResult_T{true, "ok", state.tasks.encode()})
+}
+
+func taskHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	taskId := values.Get("id")
+
+	state, err := getState()
+	if err != nil {
+		print(log_error, err)
+		writeResult(w, responseResult_T{false, "dsysb inner error", nil})
+		return
+	}
+
+	for _, task := range state.tasks {
+		h := task.hash()
+		tId := hex.EncodeToString(h[:])
+
+		if tId == taskId {
+			writeResult(w, responseResult_T{true, "ok", task.encode()})
+			return
+		}
+	}
+
+	writeResult(w, responseResult_T{false, "task " + taskId + " does not exist", nil})
 }

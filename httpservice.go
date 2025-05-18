@@ -10,13 +10,16 @@ func runHttpServer(port string) {
 	http.HandleFunc("/peer", peerHandler)
 	http.HandleFunc("/socket", socketHandler)
 	http.HandleFunc("/state", stateHandler)
-	http.HandleFunc("/listassets", listAssetsHandler)
+	http.HandleFunc("/assets", assetsHandler)
+	http.HandleFunc("/tasks", tasksHandler)
+	http.HandleFunc("/asset", assetHandler)
+	http.HandleFunc("/task", taskHandler)
 	http.HandleFunc("/blockchain", blockchainHandler)
 	http.HandleFunc("/block", blockHandler)
 	http.HandleFunc("/sendrawtransaction", sendRawTransactionHandler)
 	http.HandleFunc("/transaction", getTransactionHandler)
 
-	http.HandleFunc("/txpool", txPool)
+	http.HandleFunc("/txpool", txPoolHandler)
 
 	server := http.Server {
 		Addr: "0.0.0.0:" + port,

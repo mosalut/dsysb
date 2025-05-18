@@ -5,7 +5,6 @@ package main
 import (
 	"math/big"
 	"encoding/binary"
-	"fmt"
 )
 
 const (
@@ -30,26 +29,18 @@ func adjustTarget(block *block_T) error {
 	}
 
 	timestampNow := int64(binary.LittleEndian.Uint64(block.head.timestamp[:]))
-//	bits := binary.LittleEndian.Uint32(block.head.bits)
-	fmt.Println(index, stdBlockNum)
-
 	start := index - stdBlockNum
-	fmt.Println("start:", start)
 
 	startB := make([]byte, 4, 4)
 	binary.LittleEndian.PutUint32(startB, start)
 
-	// TODO
-	fmt.Printf("startB: %x\n", startB)
 	startBlock, err := getBlock(startB)
 	if err != nil {
 		return err
 	}
 
 	timestampStart := int64(binary.LittleEndian.Uint64(startBlock.head.timestamp[:]))
-	fmt.Println(timestampNow, timestampStart)
 	timestampDiff := timestampNow - timestampStart
-	fmt.Println("timestampDiff:", timestampDiff)
 
 	target := bitsToTarget(block.head.bits[:])
 	x := big.NewInt(0)
