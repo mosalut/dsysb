@@ -241,15 +241,16 @@ func (block *block_T)validate() error {
 		return err
 	}
 
-	prevHash := fmt.Sprintf("%072x", prevBlock.head.hash)
-	blockPrevHash := fmt.Sprintf("%072x", block.head.prevHash)
+	prevHash := hex.EncodeToString(prevBlock.head.hash[:])
+	blockPrevHash := hex.EncodeToString(block.head.prevHash[:])
 
 	if prevHash != blockPrevHash {
 		return errPrevHashNotMatch
 	}
 
-	h1 := fmt.Sprintf("%064x", block.head.hashing())
-	h2 := fmt.Sprintf("%064x", block.head.hash[:32])
+	hing := block.head.hashing()
+	h1 := hex.EncodeToString(hing[:])
+	h2 := hex.EncodeToString(block.head.hash[:32])
 	if h1 != h2 {
 		return errBlockHashing
 	}
@@ -295,17 +296,6 @@ func (block *block_T)validate() error {
 
 	err = block.body.transactions[0].count(prevBlock.state, nil, 0)
 	if err != nil{
-		return err
-	}
-
-	stateHashB = prevBlock.state.hash()
-	stateHash := hex.EncodeToString(stateHashB[:])
-	if stateHashS != stateHash {
-		return errStateRoot
-	}
-
-	err = adjustTarget(prevBlock)
-	if err != nil {
 		return err
 	}
 

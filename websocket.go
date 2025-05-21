@@ -243,7 +243,7 @@ func makeMinedBlockData() (*socketData_T, error) {
 	}
 
 	bs := cache.encode()
-	signatures = make([]string, 0, 511)
+	txIds = make([]string, 0, 511)
 
 	return &socketData_T { WS_MINED_BLOCK, bs }, nil
 }

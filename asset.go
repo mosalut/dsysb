@@ -260,6 +260,9 @@ func decodeCreateAsset(bs []byte) *createAsset_T {
 }
 
 func (ca *createAsset_T) validate(fromP2p bool) error {
+	txIdsMutex.Lock()
+	defer txIdsMutex.Unlock()
+
 	matched, err := regexp.MatchString("^[a-zA-Z0-9]{5,10}$", ca.name)
 	if err != nil {
 		return err
@@ -293,13 +296,17 @@ func (ca *createAsset_T) validate(fromP2p bool) error {
 	defer poolMutex.Unlock()
 
 	// replay attack
-	for _, signature := range signatures {
-		if s == signature {
-			h := ca.hash()
-			return errors.New("Replay attack: hash:" + hex.EncodeToString(h[:]) + " signature: " + s)
+	txIdH := ca.hash()
+	txId := hex.EncodeToString(txIdH[:])
+	for _, id := range txIds {
+		if txId == id {
+			if fromP2p {
+				deleteFromTransactionPool(txId)
+				return nil
+			}
+			return errors.New("Replay attack: txid: " + txId)
 		}
 	}
-	signatures = append(signatures, s)
 
 	var nonce uint32
 	state, err := getState()
@@ -321,6 +328,8 @@ func (ca *createAsset_T) validate(fromP2p bool) error {
 	if !ok {
 		return errors.New("Invalid signature")
 	}
+
+	txIds = append(txIds, txId)
 
 	return nil
 }

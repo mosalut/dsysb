@@ -53,6 +53,9 @@ func decodeExchange(bs []byte) *exchange_T {
 }
 
 func (ex *exchange_T) validate(fromP2p bool) error {
+	txIdsMutex.Lock()
+	defer txIdsMutex.Unlock()
+
 	if ex[0].from != ex[1].to || ex[0].to != ex[1].from {
 		return errors.New("The exchange addresses are not match")
 	}
@@ -62,8 +65,18 @@ func (ex *exchange_T) validate(fromP2p bool) error {
 		return err
 	}
 
-	poolMutex.Lock()
-	defer poolMutex.Unlock()
+	// replay attack
+	txIdH := ex.hash()
+	txId := hex.EncodeToString(txIdH[:])
+	for _, id := range txIds {
+		if txId == id {
+			if fromP2p {
+				deleteFromTransactionPool(txId)
+				return nil
+			}
+			return errors.New("Replay attack: txid: " + txId)
+		}
+	}
 
 	for _, transfer := range ex {
 		if transfer.from == transfer.to {
@@ -77,15 +90,6 @@ func (ex *exchange_T) validate(fromP2p bool) error {
 			if !ok {
 				return errors.New("There's not the asset id: " + assetId)
 			}
-		}
-
-		// proccess replay attack
-		for _, signature := range signatures {
-			s := hex.EncodeToString(transfer.signer.signature[:])
-			if s == signature {
-				return errors.New(fmt.Sprintf("%064x", ex.hash()) + " replay: " + s)
-			}
-			signatures = append(signatures, s)
 		}
 
 		var nonce uint32
@@ -104,6 +108,8 @@ func (ex *exchange_T) validate(fromP2p bool) error {
 	if !ok {
 		return errors.New("Invalid signature")
 	}
+
+	txIds = append(txIds, txId)
 
 	return nil
 }

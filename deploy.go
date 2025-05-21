@@ -139,22 +139,38 @@ func isDeploy(bs []byte) bool {
 }
 
 func (dt *deployTask_T) validate(fromP2p bool) error {
+	txIdsMutex.Lock()
+	defer txIdsMutex.Unlock()
+
+	if len(dt.instructs) + len(dt.vData) > 65358 {
+		return errors.New("warning: instructs' and vdata's length is too long")
+	}
+
+	if dt.fee == 0 {
+		fmt.Println("warning: got zero fee")
+	}
+
+	if !validateAddress(dt.from) {
+		return errors.New("`from`: invalid address")
+	}
+
 	s := hex.EncodeToString(dt.signer.signature[:])
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")
 	}
 
-	poolMutex.Lock()
-	defer poolMutex.Unlock()
-
 	// replay attack
-	for _, signature := range signatures {
-		if s == signature {
-			h := dt.hash()
-			return errors.New("Replay attack: hash:" + hex.EncodeToString(h[:]) + " signature: " + s)
+	txIdH := dt.hash()
+	txId := hex.EncodeToString(txIdH[:])
+	for _, id := range txIds {
+		if txId == id {
+			if fromP2p {
+				deleteFromTransactionPool(txId)
+				return nil
+			}
+			return errors.New("Replay attack: txid:" + txId)
 		}
 	}
-	signatures = append(signatures, s)
 
 	var nonce uint32
 	state, err := getState()
@@ -176,6 +192,8 @@ func (dt *deployTask_T) validate(fromP2p bool) error {
 	if !ok {
 		return errors.New("Invalid signature")
 	}
+
+	txIds = append(txIds, txId)
 
 	return nil
 }

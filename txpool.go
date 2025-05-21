@@ -5,12 +5,13 @@ package main
 import (
 	"sync"
 	"encoding/binary"
+	"encoding/hex"
 	"net/http"
+	"fmt"
 )
 
-var poolMutex = &sync.Mutex{}
-
-var signatures = make([]string, 0, 511)
+var txIds = make([]string, 0, 511)
+var txIdsMutex = &sync.RWMutex{}
 
 type txPool_T []transaction_I
 
@@ -48,6 +49,7 @@ func decodeTxPool(bs []byte) txPool_T {
 }
 
 var transactionPool = make(txPool_T, 0, 511)
+var poolMutex = &sync.RWMutex{}
 
 type poolCache_T struct {
 	prevHash [36]byte
@@ -145,18 +147,23 @@ func txPoolHandler(w http.ResponseWriter, req *http.Request) {
 	writeResult(w, responseResult_T{true, "ok", bs})
 }
 
-/*
-func (cache *poolCache_T) count() {
-	for k, transaction := range cache.transactions {
-		transaction.count(cache, k)
-	}
-}
+func deleteFromTransactionPool(hashStr string) {
+	poolMutex.Lock()
+	defer poolMutex.Unlock()
 
-func deleteFromCacheTransactions(cache *poolCache_T, k int) {
-	if len(cache.transactions) - 1 == k {
-		cache.transactions = cache.transactions[:k]
-	} else {
-		cache.transactions = append(cache.transactions[:k], cache.transactions[k + 1:]...)
+	for k, tx := range transactionPool {
+		h := tx.hash()
+		if hex.EncodeToString(h[:]) != hashStr {
+			continue
+		}
+
+	//	fmt.Println("delete from transaction pool:", hashStr)
+		if len(transactionPool) - 1 == k {
+			transactionPool = transactionPool[:k]
+		} else {
+			transactionPool = append(transactionPool[:k], transactionPool[k + 1:]...)
+		}
+
+		break
 	}
 }
-*/
