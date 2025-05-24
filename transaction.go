@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"io"
 	"net/http"
-	"fmt"
+	"errors"
 )
 
 const (
@@ -16,6 +16,8 @@ const (
 	type_transfer
 	type_exchange
 )
+
+const error_wrong_type = "Wrong type"
 
 type transaction_I interface {
 	hash() [32]byte
@@ -27,7 +29,7 @@ type transaction_I interface {
 	String() string
 }
 
-func decodeRawTransaction(bs []byte) transaction_I {
+func decodeRawTransaction(bs []byte) (transaction_I, error) {
 	length := len(bs)
 
 	var tx transaction_I
@@ -46,16 +48,19 @@ func decodeRawTransaction(bs []byte) transaction_I {
 			tx = decodeDeployTask(bs)
 			break
 		}
-		print(log_error, "Wrong type")
+		return nil, errors.New(error_wrong_type)
 	}
 
-	return tx
+	return tx, nil
 }
 
 func sendRawTransaction(bs []byte) error {
-	transaction := decodeRawTransaction(bs)
+	transaction, err := decodeRawTransaction(bs)
+	if err != nil {
+		return err
+	}
 
-	err := transaction.validate(false)
+	err = transaction.validate(false)
 	if err != nil {
 		return err
 	}
@@ -125,7 +130,8 @@ func getTransactionHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	for _, tx := range block.body.transactions {
-		if txid == fmt.Sprintf("%064x", tx.hash()) {
+		h := tx.hash()
+		if txid == hex.EncodeToString(h[:]) {
 			writeResult(w, responseResult_T{true, "ok", tx.encode()})
 			return
 		}
@@ -143,7 +149,8 @@ func getTransactionHandler(w http.ResponseWriter, req *http.Request) {
 		}
 
 		for _, tx := range block.body.transactions {
-			if txid == fmt.Sprintf("%064x", tx.hash()) {
+			h := tx.hash()
+			if txid == hex.EncodeToString(h[:]) {
 				writeResult(w, responseResult_T{true, "ok", tx.encode()})
 				return
 			}

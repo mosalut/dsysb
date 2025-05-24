@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"net/http"
-	"fmt"
 )
 
 var txIds = make([]string, 0, 511)
@@ -39,7 +38,7 @@ func decodeTxPool(bs []byte) txPool_T {
 		start = end
 		end = start + length
 
-		transaction := decodeRawTransaction(bs[start:end])
+		transaction, _ := decodeRawTransaction(bs[start:end])
 		pool = append(pool, transaction)
 
 		start = end

@@ -108,9 +108,13 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 
 	switch event {
 	case p2p_transport_sendrawtransaction_event:
-		tx := decodeRawTransaction(body[29:])
+		tx, err := decodeRawTransaction(body[29:])
+		if err != nil {
+			print(log_error, err)
+			return
+		}
 
-		err := tx.validate(true)
+		err = tx.validate(true)
 		if err != nil {
 			print(log_error, err)
 			return
