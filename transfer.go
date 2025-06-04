@@ -99,8 +99,10 @@ func (transfer *transfer_T) validate(fromP2p bool) error {
 		return errors.New("Unsigned transaction")
 	}
 
+	/*
 	poolMutex.Lock()
 	defer poolMutex.Unlock()
+	*/
 
 	// replay attack
 	txIdH := transfer.hash()

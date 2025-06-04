@@ -48,6 +48,11 @@ func decodeRawTransaction(bs []byte) (transaction_I, error) {
 			tx = decodeDeployTask(bs)
 			break
 		}
+		ok = isCall(bs)
+		if ok {
+			tx = decodeCallTask(bs)
+			break
+		}
 		return nil, errors.New(error_wrong_type)
 	}
 

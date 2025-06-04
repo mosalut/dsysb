@@ -203,12 +203,6 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			batch.Put([]byte("index"), block.head.hash[32:])
 			batch.Put(block.head.hash[32:], block.encode())
 
-			if len(transactionPool) <= 511 {
-				transactionPool = make([]transaction_I, 0, 511)
-			} else {
-				transactionPool = transactionPool[511:]
-			}
-
 			err = chainDB.Write(batch, nil)
 			if err != nil {
 				print(log_error, err)
@@ -243,7 +237,16 @@ func makeMinedBlockData() (*socketData_T, error) {
 	}
 
 	bs := cache.encode()
+
+	if len(transactionPool) <= 511 {
+		transactionPool = make([]transaction_I, 0, 511)
+	} else {
+		transactionPool = transactionPool[511:]
+	}
+
+	txIdsMutex.Lock()
 	txIds = make([]string, 0, 511)
+	txIdsMutex.Unlock()
 
 	return &socketData_T { WS_MINED_BLOCK, bs }, nil
 }

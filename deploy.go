@@ -221,7 +221,7 @@ func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) e
 		}
 	}
 
-	account, ok := state.accounts[task.address]
+	account, ok := state.accounts[dt.from]
 	if !ok {
 		return errors.New("DT address is empty address")
 	}
