@@ -19,8 +19,19 @@ type signer_T struct {
 
 func (signer *signer_T) encode() []byte {
 	bs := make([]byte, signer_length, signer_length)
-	copy(bs[:32], signer.x.Bytes())
-	copy(bs[32:64], signer.y.Bytes())
+
+	xBytes := signer.x.Bytes()
+	xLengDiff := 32 - len(xBytes)
+	xPrefix := make([]byte, xLengDiff, xLengDiff)
+	copy(bs[:xLengDiff], xPrefix)
+	copy(bs[xLengDiff:32], xBytes)
+
+	yBytes := signer.y.Bytes()
+	yLengDiff := 32 - len(yBytes)
+	yPrefix := make([]byte, yLengDiff, yLengDiff)
+	copy(bs[32:32 + yLengDiff], yPrefix)
+	copy(bs[32 + yLengDiff:64], yBytes)
+
 	copy(bs[64:], signer.signature[:])
 
 	return bs
