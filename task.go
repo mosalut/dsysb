@@ -32,12 +32,12 @@ func (task *task_T) encode() []byte {
 
 func (task *task_T) hash() [32]byte {
 	leng := len(task.instructs)
-	length := leng + 34 // 36 = address:34 + leng0:2
+	length := leng + 34
 	bs := make([]byte, length, length)
 	copy(bs[:34], []byte(task.address))
 	copy(bs[34:34 + leng], []byte(task.instructs))
 
-	return sha256.Sum256(task.encode())
+	return sha256.Sum256(bs)
 }
 
 func decodeTask(bs []byte) *task_T {

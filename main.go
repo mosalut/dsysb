@@ -45,7 +45,7 @@ func main() {
 	}
 
 	peer = q2p.NewPeer(cmdFlag.ip, cmdFlag.port, seedAddrs, cmdFlag.networkID)
-	q2p.Set_connection_num(cmdFlag.cn)
+	q2p.SetConnectionNum(cmdFlag.cn)
 	peer.TimeSendLost = 5
 	peer.Timeout = 16
 	peer.LifeCycle = lifeCycle
@@ -55,25 +55,10 @@ func main() {
 	initDB()
 	initIndex()
 
-	print(log_debug, "peer:", peer)
 	err := peer.Run()
 	if err != nil {
 		log.Fatal(err)
 	}
-	print(log_debug, "conn:", peer.Conn)
-
-	/*
-	fmt.Println("difficult_1_target")
-	fmt.Printf("%x\n", difficult_1_target)
-
-	target := bitsToTarget(difficult_1_target[:])
-	fmt.Println("target")
-	fmt.Printf("%064x\n", target)
-
-	bits := targetToBits(target)
-	fmt.Println("bits")
-	fmt.Printf("%x\n", bits)
-	*/
 
 	runHttpServer(cmdFlag.httpPort)
 }

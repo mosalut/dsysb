@@ -25,6 +25,8 @@ github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlT
 github.com/kkdai/bstream v0.0.0-20161212061736-f391b8402d23/go.mod h1:J+Gs4SYgM6CZQHDETBtE9HaSEkGmuNXF86RwHhHUvq4=
 github.com/mosalut/q2p v1.0.15 h1:mdcjn9hUhrYlHMEeWqqz4HaiUt3GfAonWU6RZ/lrsVo=
 github.com/mosalut/q2p v1.0.15/go.mod h1:+jL7WpBaB5oPnP4LL+sXCXUwcfeIxwo+CSD1b1klr+I=
+github.com/mosalut/q2p v1.1.0 h1:W4gQwf6pbgL+OvxOf11NoOi4s1EjD68Nfh0/s0sZ4Gg=
+github.com/mosalut/q2p v1.1.0/go.mod h1:+jL7WpBaB5oPnP4LL+sXCXUwcfeIxwo+CSD1b1klr+I=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0 h1:WSHQ+IS43OoUrWtD1/bbclrwK8TTH5hzp+umCiuxHgs=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=

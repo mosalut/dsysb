@@ -86,6 +86,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				print(log_error, err)
 				continue
 			}
+			cache.transactions = cache.transactions[:0]
 			bs := cache.encode()
 
 			socketData := socketData_T { WS_UPDATE, bs }
