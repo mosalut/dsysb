@@ -176,3 +176,106 @@ func blockchainHandler(w http.ResponseWriter, req *http.Request) {
 
 	writeResult(w, responseResult_T{true, "ok", blockchain.encode()})
 }
+
+func blockchain2Handler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	n := values.Get("n")
+
+	number, err := strconv.Atoi(n)
+	if err != nil {
+		writeResult(w, responseResult_T{false, err.Error(), nil})
+		return
+	}
+
+	if number <= 0 || number > math.MaxUint32 {
+		writeResult(w, responseResult_T{false, "number must be between 0 and 4294967296", nil})
+		return
+	}
+
+	blockchain := make([]*struct {
+		Head *struct {
+			PrevHash string `json:"prevHash"`
+			Hash string `json:"hash"`
+			StateRoot string `json:"stateRoot"`
+			TransactionRoot string `json:"transactionRoot"`
+			Bits string `json:"bits"`
+			Timestamp int64 `json:"timestamp"`
+			Nonce uint32 `json:"nonce"`
+		} `json:"head"`
+		Transactions []string `json:"transactions"`
+	}, 0, number)
+	/*
+	blockchain := make([]*struct{
+	}, 0, number)
+	*/
+
+	block, err := getHashBlock()
+	if err != nil {
+		writeResult(w, responseResult_T{false, err.Error(), nil})
+		return
+	}
+
+	for i := 0; i < number && block != nil; i++ {
+		block2 := &struct {
+			Head *struct {
+				PrevHash string `json:"prevHash"`
+				Hash string `json:"hash"`
+				StateRoot string `json:"stateRoot"`
+				TransactionRoot string `json:"transactionRoot"`
+				Bits string `json:"bits"`
+				Timestamp int64 `json:"timestamp"`
+				Nonce uint32 `json:"nonce"`
+			} `json:"head"`
+			Transactions []string `json:"transactions"`
+		} {}
+
+		block2.Head = &struct {
+			PrevHash string `json:"prevHash"`
+			Hash string `json:"hash"`
+			StateRoot string `json:"stateRoot"`
+			TransactionRoot string `json:"transactionRoot"`
+			Bits string `json:"bits"`
+			Timestamp int64 `json:"timestamp"`
+			Nonce uint32 `json:"nonce"`
+		} {}
+
+		block2.Head.PrevHash = hex.EncodeToString(block.head.prevHash[:])
+		block2.Head.Hash = hex.EncodeToString(block.head.hash[:])
+		block2.Head.StateRoot = hex.EncodeToString(block.head.stateRoot[:])
+		block2.Head.TransactionRoot = hex.EncodeToString(block.head.transactionRoot[:])
+		block2.Head.Bits = hex.EncodeToString(block.head.bits[:])
+		block2.Head.Timestamp = int64(binary.LittleEndian.Uint64(block.head.timestamp[:]))
+		block2.Head.Nonce = uint32(binary.LittleEndian.Uint32(block.head.nonce[:]))
+
+		tLength := len(block.body.transactions)
+		block2.Transactions = make([]string, tLength, tLength)
+		for k, tx := range block.body.transactions {
+			h := tx.hash()
+			block2.Transactions[k] = hex.EncodeToString(h[:])
+		}
+
+		blockchain = append(blockchain, block2)
+
+		if hex.EncodeToString(block.head.prevHash[:]) == genesisPrevHash {
+			break
+		}
+		block, err = getBlock(block.head.prevHash[32:])
+		if err != nil {
+			writeResult(w, responseResult_T{false, err.Error(), nil})
+			return
+		}
+	}
+
+	writeResult2(w, responseResult2_T{true, "ok", blockchain})
+}

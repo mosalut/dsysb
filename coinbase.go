@@ -5,6 +5,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 )
@@ -77,6 +78,18 @@ func (coinbase *coinbase_T) count(state *state_T, c *coinbase_T, index int) erro
 	}
 
 	return nil
+}
+
+func (tx *coinbase_T) Map() map[string]interface{} {
+	txM := make(map[string]interface{})
+	h := tx.hash()
+	txM["txid"] = hex.EncodeToString(h[:])
+	txM["type"] = type_coinbase
+	txM["to"] = tx.to
+	txM["amount"] = tx.amount
+	txM["nonce"] = tx.nonce
+
+	return txM
 }
 
 func (tx *coinbase_T) String() string {

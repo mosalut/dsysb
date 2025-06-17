@@ -81,27 +81,6 @@ func decodeCallTask(bs []byte) *callTask_T {
 	return tx
 }
 
-func (tx *callTask_T) String() string {
-	return fmt.Sprintf(
-		"\ttxid:\t%064x\n" +
-			"\ttype:\tcall\n" +
-			"\ttask id: %x\n" +
-			"\tfrom: %s\n" +
-			"\tparams: %v\n" +
-			"\tnonce: %d\n" +
-			"\tfee: %d\n" +
-			"%s", tx.hash(), tx.taskId, tx.from, tx.params, tx.nonce, tx.fee, tx.signer)
-}
-
-func isCall(bs []byte) bool {
-	length := len(bs)
-	if length < 206 || length > 65536 {
-		return false
-	}
-
-	return validateAddress(string(bs[32:66]))
-}
-
 func (ct *callTask_T) validate(fromP2p bool) error {
 	txIdsMutex.Lock()
 	defer txIdsMutex.Unlock()
@@ -199,4 +178,40 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 	account.nonce = ct.nonce
 
 	return nil
+}
+
+func (tx *callTask_T) Map() map[string]interface{} {
+	txM := make(map[string]interface{})
+	h := tx.hash()
+	txM["txid"] = hex.EncodeToString(h[:])
+	txM["type"] = type_call
+	txM["taskId"] = hex.EncodeToString(tx.taskId[:])
+	txM["from"] = tx.from
+	txM["params"] = hex.EncodeToString(tx.params[:])
+	txM["nonce"] = tx.nonce
+	txM["fee"] = tx.fee
+	txM["signature"] = hex.EncodeToString(tx.signer.signature[:])
+
+	return txM
+}
+
+func (tx *callTask_T) String() string {
+	return fmt.Sprintf(
+		"\ttxid:\t%064x\n" +
+			"\ttype:\tcall\n" +
+			"\ttask id: %x\n" +
+			"\tfrom: %s\n" +
+			"\tparams: %v\n" +
+			"\tnonce: %d\n" +
+			"\tfee: %d\n" +
+			"%s", tx.hash(), tx.taskId, tx.from, tx.params, tx.nonce, tx.fee, tx.signer)
+}
+
+func isCall(bs []byte) bool {
+	length := len(bs)
+	if length < 206 || length > 65536 {
+		return false
+	}
+
+	return validateAddress(string(bs[32:66]))
 }

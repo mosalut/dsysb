@@ -605,3 +605,43 @@ func taskHandler(w http.ResponseWriter, req *http.Request) {
 
 	writeResult(w, responseResult_T{false, "task " + taskId + " does not exist", nil})
 }
+
+func task2Handler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	taskId := values.Get("id")
+
+	state, err := getState()
+	if err != nil {
+		print(log_error, err)
+		writeResult2(w, responseResult2_T{false, "dsysb inner error", nil})
+		return
+	}
+
+	for _, task := range state.tasks {
+		h := task.hash()
+		tId := hex.EncodeToString(h[:])
+
+		if tId == taskId {
+			taskM := map[string]interface{} {
+				"address": task.address,
+				"instructs": hex.EncodeToString(task.instructs[:]),
+				"vData": hex.EncodeToString(task.vData[:]),
+			}
+			writeResult2(w, responseResult2_T{true, "ok", taskM})
+			return
+		}
+	}
+
+	writeResult2(w, responseResult2_T{false, "task " + taskId + " does not exist", nil})
+}

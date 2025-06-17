@@ -207,6 +207,22 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 	return nil
 }
 
+func (transfer *transfer_T) Map() map[string]interface{} {
+	txM := make(map[string]interface{})
+	h := transfer.hash()
+	txM["txid"] = hex.EncodeToString(h[:])
+	txM["type"] = type_transfer
+	txM["from"] = transfer.from
+	txM["to"] = transfer.to
+	txM["amount"] = transfer.amount
+	txM["assetId"] = hex.EncodeToString(transfer.assetId[:])
+	txM["nonce"] = transfer.nonce
+	txM["fee"] = transfer.fee
+	txM["signature"] = hex.EncodeToString(transfer.signer.signature[:])
+
+	return txM
+}
+
 func (transfer *transfer_T) String() string {
 	return fmt.Sprintf(
 		"\tfrom: %s\n" +

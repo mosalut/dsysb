@@ -99,6 +99,21 @@ func decodeDeployTask(bs []byte) *deployTask_T {
 	return tx
 }
 
+func (tx *deployTask_T) Map() map[string]interface{} {
+	txM := make(map[string]interface{})
+	h := tx.hash()
+	txM["txid"] = hex.EncodeToString(h[:])
+	txM["type"] = type_deploy
+	txM["instructs"] = hex.EncodeToString(tx.instructs[:])
+	txM["vData"] = hex.EncodeToString(tx.vData[:])
+	txM["from"] = tx.from
+	txM["nonce"] = tx.nonce
+	txM["fee"] = tx.fee
+	txM["signature"] = hex.EncodeToString(tx.signer.signature[:])
+
+	return txM
+}
+
 func (tx *deployTask_T) String() string {
 	return fmt.Sprintf(
 		"\ttxid:\t%064x\n" +

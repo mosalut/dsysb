@@ -188,6 +188,50 @@ func assetHandler(w http.ResponseWriter, req *http.Request) {
 	writeResult(w, responseResult_T{false, "asset " + assetId + " does not exist", nil})
 }
 
+func asset2Handler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	assetId := values.Get("id")
+
+	state, err := getState()
+	if err != nil {
+		print(log_error, err)
+		writeResult2(w, responseResult2_T{false, "dsysb inner error", nil})
+		return
+	}
+
+	for _, asset := range state.assets {
+		h := asset.hash()
+		aId := hex.EncodeToString(h[:])
+
+		if aId == assetId {
+			assetM := map[string]interface{} {
+				"name": asset.name,
+				"symbol": asset.symbol,
+				"decimals": asset.decimals,
+				"totalSupply": asset.totalSupply,
+				"price": asset.price,
+				"blocks": asset.blocks,
+				"remain": asset.remain,
+			}
+			writeResult2(w, responseResult2_T{true, "ok", assetM})
+			return
+		}
+	}
+
+	writeResult2(w, responseResult2_T{false, "asset " + assetId + " does not exist", nil})
+}
+
 type createAsset_T struct {
 	name string
 	symbol string
@@ -380,6 +424,25 @@ func (ca *createAsset_T) count(state *state_T, coinbase *coinbase_T, index int) 
 	account.nonce = ca.nonce
 
 	return nil
+}
+
+func (ca *createAsset_T) Map() map[string]interface{} {
+	txM := make(map[string]interface{})
+	h := ca.hash()
+	txM["txid"] = hex.EncodeToString(h[:])
+	txM["type"] = type_create
+	txM["name"] = ca.name
+	txM["symbol"] = ca.symbol
+	txM["decimals"] = ca.decimals
+	txM["totalSupply"] = ca.totalSupply
+	txM["price"] = ca.price
+	txM["blocks"] = ca.blocks
+	txM["from"] = ca.from
+	txM["nonce"] = ca.nonce
+	txM["fee"] = ca.fee
+	txM["signature"] = hex.EncodeToString(ca.signer.signature[:])
+
+	return txM
 }
 
 func (ca *createAsset_T) String() string {

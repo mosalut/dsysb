@@ -176,6 +176,34 @@ func (ex *exchange_T) count(state *state_T, coinbase *coinbase_T, index int) err
 	return nil
 }
 
+func (ex *exchange_T) Map() map[string]interface{} {
+	txM := make(map[string]interface{})
+
+	h := ex.hash()
+	txM["txid"] = hex.EncodeToString(h[:])
+	txM["type"] = type_exchange
+	txM["tx0"] = make(map[string]interface{})
+	txM["tx1"] = make(map[string]interface{})
+
+	txM["tx0"].(map[string]interface{})["from"] = ex[0].from
+	txM["tx0"].(map[string]interface{})["to"] = ex[0].to
+	txM["tx0"].(map[string]interface{})["amount"] = ex[0].amount
+	txM["tx0"].(map[string]interface{})["assetId"] = ex[0].assetId
+	txM["tx0"].(map[string]interface{})["nonce"] = ex[0].nonce
+	txM["tx0"].(map[string]interface{})["fee"] = ex[0].fee
+	txM["tx0"].(map[string]interface{})["signature"] = hex.EncodeToString(ex[0].signer.signature[:])
+
+	txM["tx1"].(map[string]interface{})["from"] = ex[1].from
+	txM["tx1"].(map[string]interface{})["to"] = ex[1].to
+	txM["tx1"].(map[string]interface{})["amount"] = ex[1].amount
+	txM["tx1"].(map[string]interface{})["assetId"] = ex[1].assetId
+	txM["tx1"].(map[string]interface{})["nonce"] = ex[1].nonce
+	txM["tx1"].(map[string]interface{})["fee"] = ex[1].fee
+	txM["tx1"].(map[string]interface{})["signature"] = hex.EncodeToString(ex[1].signer.signature[:])
+
+	return txM
+}
+
 func (ex *exchange_T) String() string {
 	return fmt.Sprintf(
 		"\ttxid:\t%064x\n" +
