@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"net/http"
 	"fmt"
 )
 
@@ -86,6 +87,52 @@ func decodeAccount(bs []byte) *account_T {
 
 func (account *account_T)hash() [32]byte {
 	return sha256.Sum256(account.encode())
+}
+
+func accountHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	address := values.Get("address")
+
+	state, err := getState()
+	if err != nil {
+		print(log_error, err)
+		writeResult(w, responseResult_T{false, "dsysb inner error", nil})
+		return
+	}
+
+	account, ok := state.accounts[address]
+	if !ok {
+		writeResult(w, responseResult_T{false, "No this account", nil})
+	}
+
+	writeResult(w, responseResult_T{true, "ok", account.encode()})
+}
+
+func accountsHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	// TODO
+	writeResult(w, responseResult_T{false, "TODO", nil})
 }
 
 func (account *account_T)String() string {

@@ -206,7 +206,5 @@ func stateHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	stateBytes := state.encode()
-
-	writeResult(w, responseResult_T{true, "ok", stateBytes})
+	writeResult(w, responseResult_T{true, "ok", state.encode()})
 }

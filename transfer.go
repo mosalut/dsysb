@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	transfer_length = 248
+	transfer_length = 244
 	transfer_to_position = 34
 	transfer_amount_position = 68
 	transfer_asset_id_position = 76
 	transfer_nonce_position = 108
-	transfer_fee_position = 112
-	transfer_signer_position = 120
+	transfer_byte_price_position = 112
+	transfer_signer_position = 116
 )
 
 type transfer_T struct {
@@ -29,7 +29,7 @@ type transfer_T struct {
 	amount uint64
 	assetId [32]byte
 	nonce uint32
-	fee uint64
+	bytePrice uint32
 	signer *signer_T
 }
 
@@ -45,8 +45,8 @@ func (transfer *transfer_T) encode() []byte {
 	copy(bs[transfer_to_position:transfer_amount_position], []byte(transfer.to))
 	binary.LittleEndian.PutUint64(bs[transfer_amount_position:transfer_asset_id_position],transfer.amount)
 	copy(bs[transfer_asset_id_position:transfer_nonce_position], transfer.assetId[:])
-	binary.LittleEndian.PutUint32(bs[transfer_nonce_position:transfer_fee_position], transfer.nonce)
-	binary.LittleEndian.PutUint64(bs[transfer_fee_position:transfer_signer_position], transfer.fee)
+	binary.LittleEndian.PutUint32(bs[transfer_nonce_position:transfer_byte_price_position], transfer.nonce)
+	binary.LittleEndian.PutUint32(bs[transfer_byte_price_position:transfer_signer_position], transfer.bytePrice)
 	copy(bs[transfer_signer_position:], transfer.signer.encode())
 
 	return bs
@@ -67,8 +67,8 @@ func decodeTransfer(bs []byte) *transfer_T {
 	transfer.to = string(bs[transfer_to_position:transfer_amount_position])
 	transfer.amount = binary.LittleEndian.Uint64(bs[transfer_amount_position:transfer_asset_id_position])
 	transfer.assetId = [32]byte(bs[transfer_asset_id_position:transfer_nonce_position])
-	transfer.nonce = binary.LittleEndian.Uint32(bs[transfer_nonce_position:transfer_fee_position])
-	transfer.fee = binary.LittleEndian.Uint64(bs[transfer_fee_position:transfer_signer_position])
+	transfer.nonce = binary.LittleEndian.Uint32(bs[transfer_nonce_position:transfer_byte_price_position])
+	transfer.bytePrice = binary.LittleEndian.Uint32(bs[transfer_byte_price_position:transfer_signer_position])
 	transfer.signer = decodeSigner(bs[transfer_signer_position:])
 
 	return transfer
@@ -80,8 +80,8 @@ func (transfer *transfer_T) encodeWithoutSigner() []byte {
 	copy(bs[transfer_to_position:transfer_amount_position], []byte(transfer.to))
 	binary.LittleEndian.PutUint64(bs[transfer_amount_position:transfer_asset_id_position],transfer.amount)
 	copy(bs[transfer_asset_id_position:transfer_nonce_position], transfer.assetId[:])
-	binary.LittleEndian.PutUint32(bs[transfer_nonce_position:transfer_fee_position], transfer.nonce)
-	binary.LittleEndian.PutUint64(bs[transfer_fee_position:transfer_signer_position], transfer.fee)
+	binary.LittleEndian.PutUint32(bs[transfer_nonce_position:transfer_byte_price_position], transfer.nonce)
+	binary.LittleEndian.PutUint32(bs[transfer_byte_price_position:transfer_signer_position], transfer.bytePrice)
 
 	return bs
 }
@@ -152,6 +152,14 @@ func (transfer *transfer_T) validate(fromP2p bool) error {
 	return nil
 }
 
+func (transfer *transfer_T) length() int {
+	return transfer_length
+}
+
+func (transfer *transfer_T) fee() uint64 {
+	return transfer_length * uint64(transfer.bytePrice)
+}
+
 func (transfer *transfer_T) verifySign() bool {
 	publicKey := ecdsa.PublicKey{elliptic.P256(), transfer.signer.x, transfer.signer.y}
 	txid := transfer.hash()
@@ -174,13 +182,13 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 	id := fmt.Sprintf("%064x", transfer.assetId)
 
 	if id == dsysbId {
-		if accountFrom.balance < transfer.amount + transfer.fee {
+		if accountFrom.balance < transfer.amount + transfer.fee() {
 			return errors.New("not enough DSBs: amount + fee")
 		}
 
 		accountFrom.balance, accountTo.balance = accountFrom.balance - transfer.amount, accountTo.balance + transfer.amount
 	} else {
-		if accountFrom.balance < transfer.fee {
+		if accountFrom.balance < transfer.fee() {
 			return errors.New("not enough DSBs: fee")
 		}
 		balance, ok := accountFrom.assets[id]
@@ -199,9 +207,9 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 		accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
 	}
 
-	accountFrom.balance -= transfer.fee
-//	state.accounts[*address].balance += transfer.fee
-	coinbase.amount += transfer.fee
+	accountFrom.balance -= transfer.fee()
+//	state.accounts[*address].balance += transfer.fee()
+	coinbase.amount += transfer.fee()
 	accountFrom.nonce = transfer.nonce
 
 	return nil
@@ -217,7 +225,8 @@ func (transfer *transfer_T) Map() map[string]interface{} {
 	txM["amount"] = transfer.amount
 	txM["assetId"] = hex.EncodeToString(transfer.assetId[:])
 	txM["nonce"] = transfer.nonce
-	txM["fee"] = transfer.fee
+	txM["byte price"] = transfer.bytePrice
+	txM["fee"] = transfer.fee()
 	txM["signature"] = hex.EncodeToString(transfer.signer.signature[:])
 
 	return txM
@@ -230,7 +239,8 @@ func (transfer *transfer_T) String() string {
 		"\tamount: %d\n" +
 		"\tasset id: %064x\n" +
 		"\tnonce: %d\n" +
+		"\tbyte price: %d\n" +
 		"\tfee: %d\n" +
 		"%s",
-		transfer.from, transfer.to, transfer.amount, transfer.assetId, transfer.nonce, transfer.fee, transfer.signer)
+		transfer.from, transfer.to, transfer.amount, transfer.assetId, transfer.nonce, transfer.bytePrice, transfer.fee(), transfer.signer)
 }

@@ -18,7 +18,7 @@ type callTask_T struct {
 	from string
 	params []byte
 	nonce uint32
-	fee uint64
+	bytePrice uint32
 	signer *signer_T
 }
 
@@ -26,14 +26,14 @@ func (tx *callTask_T) hash() [32]byte {
 	pLength := len(tx.params)
 	paramsEnd := 66 + pLength // 66 = 32 + 34
 	nonceEnd := paramsEnd + 4
-	feeEnd := nonceEnd + 8
-	length := feeEnd + 128
+	bytePriceEnd := nonceEnd + 4
+	length := bytePriceEnd + 128
 	bs := make([]byte, length, length)
 	copy(bs[:32], tx.taskId[:])
 	copy(bs[32:66], []byte(tx.from))
 	copy(bs[66:paramsEnd], tx.params)
 	binary.LittleEndian.PutUint32(bs[paramsEnd:nonceEnd], tx.nonce)
-	binary.LittleEndian.PutUint64(bs[nonceEnd:feeEnd], tx.fee)
+	binary.LittleEndian.PutUint32(bs[nonceEnd:bytePriceEnd], tx.bytePrice)
 
 	return sha256.Sum256(bs)
 }
@@ -42,22 +42,22 @@ func (tx *callTask_T) encode() []byte {
 	pLength := len(tx.params)
 	paramsEnd := 66 + pLength // 66 = 32 + 34
 	nonceEnd := paramsEnd + 4
-	feeEnd := nonceEnd + 8
-	length := feeEnd + 128
+	bytePriceEnd := nonceEnd + 4
+	length := bytePriceEnd + 128
 	bs := make([]byte, length, length)
 	copy(bs[:32], tx.taskId[:])
 	copy(bs[32:66], []byte(tx.from))
 	copy(bs[66:paramsEnd], tx.params)
 	binary.LittleEndian.PutUint32(bs[paramsEnd:nonceEnd], tx.nonce)
-	binary.LittleEndian.PutUint64(bs[nonceEnd:feeEnd], tx.fee)
-	copy(bs[feeEnd:], tx.signer.encode())
+	binary.LittleEndian.PutUint32(bs[nonceEnd:bytePriceEnd], tx.bytePrice)
+	copy(bs[bytePriceEnd:], tx.signer.encode())
 
 	return bs
 }
 
 func (tx *callTask_T) encodeForPool() []byte {
-	// 206 = 32 + 34 + 4 + 8 + 128
-	length0 := 206 + len(tx.params)
+	// 202 = 32 + 34 + 4 + 4 + 128
+	length0 := 202 + len(tx.params)
 	length := length0 + 2
 	bs := make([]byte, length, length)
 	binary.LittleEndian.PutUint16(bs[:2], uint16(length0))
@@ -70,27 +70,35 @@ func decodeCallTask(bs []byte) *callTask_T {
 	tx := &callTask_T{}
 	tx.taskId = [32]byte(bs[:32])
 	tx.from = string(bs[32:66])
-	paramsEnd := len(bs) - 140 // 140 = 4 + 8 + 128
+	paramsEnd := len(bs) - 136 // 136 = 4 + 4 + 128
 	tx.params = bs[66:paramsEnd]
 	nonceEnd := paramsEnd + 4
 	tx.nonce = binary.LittleEndian.Uint32(bs[paramsEnd:nonceEnd])
-	feeEnd := nonceEnd + 8
-	tx.fee = binary.LittleEndian.Uint64(bs[nonceEnd:feeEnd])
-	tx.signer = decodeSigner(bs[feeEnd:])
+	bytePriceEnd := nonceEnd + 4
+	tx.bytePrice = binary.LittleEndian.Uint32(bs[nonceEnd:bytePriceEnd])
+	tx.signer = decodeSigner(bs[bytePriceEnd:])
 
 	return tx
+}
+
+func (tx *callTask_T) length() int {
+	return len(tx.params) + 202
+}
+
+func (tx *callTask_T) fee() uint64 {
+	return uint64(tx.length()) * uint64(tx.bytePrice)
 }
 
 func (ct *callTask_T) validate(fromP2p bool) error {
 	txIdsMutex.Lock()
 	defer txIdsMutex.Unlock()
 
-	if len(ct.params) > 65330 {
-		return errors.New("warning: params's length is too long")
+	if len(ct.params) > 65334 {
+		return errors.New("Params's length is too long")
 	}
 
-	if ct.fee == 0 {
-		fmt.Println("warning: got zero fee")
+	if ct.fee() == 0 {
+		return errors.New("Disallow zero byte price")
 	}
 
 	if !validateAddress(ct.from) {
@@ -170,11 +178,11 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 		return errors.New("CT address is empty address")
 	}
 
-	if account.balance < ct.fee {
-		return errors.New("not enough minerals")
+	if account.balance < ct.fee() {
+		return errors.New("Not enough minerals")
 	}
-	account.balance -= ct.fee
-	coinbase.amount += ct.fee
+	account.balance -= ct.fee()
+	coinbase.amount += ct.fee()
 	account.nonce = ct.nonce
 
 	return nil
@@ -189,7 +197,8 @@ func (tx *callTask_T) Map() map[string]interface{} {
 	txM["from"] = tx.from
 	txM["params"] = hex.EncodeToString(tx.params[:])
 	txM["nonce"] = tx.nonce
-	txM["fee"] = tx.fee
+	txM["byte price"] = tx.bytePrice
+	txM["fee"] = tx.fee()
 	txM["signature"] = hex.EncodeToString(tx.signer.signature[:])
 
 	return txM
@@ -203,13 +212,14 @@ func (tx *callTask_T) String() string {
 			"\tfrom: %s\n" +
 			"\tparams: %v\n" +
 			"\tnonce: %d\n" +
+			"\tbyte price: %d\n" +
 			"\tfee: %d\n" +
-			"%s", tx.hash(), tx.taskId, tx.from, tx.params, tx.nonce, tx.fee, tx.signer)
+			"%s", tx.hash(), tx.taskId, tx.from, tx.params, tx.nonce, tx.bytePrice, tx.fee(), tx.signer)
 }
 
 func isCall(bs []byte) bool {
 	length := len(bs)
-	if length < 206 || length > 65536 {
+	if length < 202 || length > 65536 {
 		return false
 	}
 

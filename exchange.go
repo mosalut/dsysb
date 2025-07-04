@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	exchange_length = 496
+	exchange_length = 488
 )
 
 type exchange_T [2]*transfer_T
@@ -167,9 +167,9 @@ func (ex *exchange_T) count(state *state_T, coinbase *coinbase_T, index int) err
 			accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
 		}
 
-		accountFrom.balance -= transfer.fee
-	//	state.accounts[*address].balance += transfer.fee
-		coinbase.amount += transfer.fee
+		accountFrom.balance -= transfer.fee()
+	//	state.accounts[*address].balance += transfer.fee()
+		coinbase.amount += transfer.fee()
 		accountFrom.nonce = transfer.nonce
 	}
 

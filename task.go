@@ -10,6 +10,20 @@ import (
 	"errors"
 )
 
+type reg_T struct {
+	vBytes []byte
+	vUint8 uint8
+	vUint16 uint16
+	vUint32 uint32
+	vUint64 uint64
+	vInt8 uint8
+	vInt16 uint16
+	vInt32 uint64
+	vInt64 uint64
+
+	vBool bool
+}
+
 type task_T struct {
 	address string
 	instructs []uint8
@@ -58,133 +72,114 @@ func (task *task_T) deploy() string {
 }
 
 func (task *task_T) excute(state *state_T) error {
-	// var ip int for instructs
-	/*
-	defer func() {
-		if r := recover(); r != nil {
-			h := task.hash()
-			print(log_warning, "task excute failed:", hex.EncodeToString(h[:]))
-			print(r)
-		}
-	}()
-	*/
+	// variable ip int for instructs
 
 	d := make([]byte, len(task.vData), len(task.vData))
 	copy(d, task.vData)
 
+	reg := &reg_T{}
+
 	for ip := 0; ip < len(task.instructs); {
-		switch task.instructs[ip] {
+		ipx := ip
+		ip++
+		switch task.instructs[ipx] {
 		case ins_movsb:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // source
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // distination
 			ip += 2
-			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // length
 			ip += 2
 			task.movsb(p0, p1, p2)
 		case ins_mov8:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // source
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // distination
 			ip += 2
 			task.mov8(p0, p1)
 		case ins_mov16:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // source
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // distination
 			ip += 2
 			task.mov16(p0, p1)
 		case ins_mov32:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // source
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // distination
 			ip += 2
 			task.mov32(p0, p1)
 		case ins_mov64:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // source
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // distination
 			ip += 2
 			task.mov64(p0, p1)
 		case ins_add8:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			task.add8(p0, p1, p2)
 		case ins_add16:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			task.add16(p0, p1, p2)
 		case ins_add32:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			task.add32(p0, p1, p2)
 		case ins_add64:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			task.add64(p0, p1, p2)
 		case ins_add8u:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			task.add8u(p0, p1, p2)
 		case ins_add16u:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			task.add16u(p0, p1, p2)
 		case ins_add32u:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			task.add32u(p0, p1, p2)
 		case ins_add64u:
-			ip++
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
 			ip += 2
-			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			task.add64u(p0, p1, p2)
 		case ins_sub8:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -193,7 +188,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.sub8(p0, p1, p2)
 		case ins_sub16:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -202,7 +196,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.sub16(p0, p1, p2)
 		case ins_sub32:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -211,7 +204,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.sub32(p0, p1, p2)
 		case ins_sub64:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -220,7 +212,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.sub64(p0, p1, p2)
 		case ins_sub8u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -229,7 +220,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.sub8u(p0, p1, p2)
 		case ins_sub16u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -238,7 +228,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.sub16u(p0, p1, p2)
 		case ins_sub32u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -247,7 +236,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.sub32u(p0, p1, p2)
 		case ins_sub64u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -256,7 +244,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.sub64u(p0, p1, p2)
 		case ins_mul8:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -265,7 +252,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.mul8(p0, p1, p2)
 		case ins_mul16:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -274,7 +260,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.mul16(p0, p1, p2)
 		case ins_mul32:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -283,7 +268,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.mul32(p0, p1, p2)
 		case ins_mul64:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -292,7 +276,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.mul64(p0, p1, p2)
 		case ins_mul8u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -301,7 +284,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.mul8u(p0, p1, p2)
 		case ins_mul16u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -310,7 +292,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.mul16u(p0, p1, p2)
 		case ins_mul32u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -319,7 +300,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.mul32u(p0, p1, p2)
 		case ins_mul64u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -328,7 +308,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.mul64u(p0, p1, p2)
 		case ins_quo8:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -339,7 +318,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.quo8(p0, p1, p2, p3)
 		case ins_quo16:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -350,7 +328,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.quo16(p0, p1, p2, p3)
 		case ins_quo32:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -361,7 +338,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.quo32(p0, p1, p2, p3)
 		case ins_quo64:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -372,7 +348,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.quo64(p0, p1, p2, p3)
 		case ins_quo8u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -383,7 +358,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.quo8u(p0, p1, p2, p3)
 		case ins_quo16u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -394,7 +368,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.quo16u(p0, p1, p2, p3)
 		case ins_quo32u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -405,7 +378,6 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.quo32u(p0, p1, p2, p3)
 		case ins_quo64u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -416,90 +388,155 @@ func (task *task_T) excute(state *state_T) error {
 			ip += 2
 			task.quo64u(p0, p1, p2, p3)
 		case ins_inc8:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.inc8(p0)
 		case ins_inc16:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.inc16(p0)
 		case ins_inc32:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.inc32(p0)
 		case ins_inc64:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.inc64(p0)
 		case ins_inc8u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.inc8u(p0)
 		case ins_inc16u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.inc16u(p0)
 		case ins_inc32u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.inc32u(p0)
 		case ins_inc64u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.inc64u(p0)
 		case ins_dec8:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.dec8(p0)
 		case ins_dec16:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.dec16(p0)
 		case ins_dec32:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.dec32(p0)
 		case ins_dec64:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.dec64(p0)
 		case ins_dec8u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.dec8u(p0)
 		case ins_dec16u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.dec16u(p0)
 		case ins_dec32u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.dec32u(p0)
 		case ins_dec64u:
-			ip++
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
 			task.dec64u(p0)
-		case ins_getIndex:
-			ip++
+		case ins_bytes:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-			err := task.getIndex(p0)
+			task.vBytes(reg, p0)
+		case ins_uint8:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // distination 
+			ip += 2
+			task.vUint8(reg, p0)
+		case ins_uint16:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.vUint16(reg, p0)
+		case ins_uint32:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.vUint32(reg, p0)
+		case ins_uint64:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.vUint64(reg, p0)
+		case ins_int8:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.vInt8(reg, p0)
+		case ins_int16:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.vInt16(reg, p0)
+		case ins_int32:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.vInt32(reg, p0)
+		case ins_int64:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.vInt64(reg, p0)
+		case ins_eq:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.eq(reg, p0, p1, p2)
+		case ins_gt:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.gt(reg, p0, p1, p2)
+		case ins_lt:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.lt(reg, p0, p1, p2)
+		case ins_gteq:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.gteq(reg, p0, p1, p2)
+		case ins_lteq:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.lteq(reg, p0, p1, p2)
+		case ins_eq_bytes:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+			task.eqBytes(reg, p0, p1, p2)
+		case ins_height:
+			err := task.getIndex(reg)
 			if err != nil {
 				copy(task.vData, d)
 				return err
@@ -604,44 +641,4 @@ func taskHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeResult(w, responseResult_T{false, "task " + taskId + " does not exist", nil})
-}
-
-func task2Handler(w http.ResponseWriter, req *http.Request) {
-	cors(w)
-
-	switch req.Method {
-	case http.MethodOptions:
-		return
-	case http.MethodGet:
-	default:
-		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
-		return
-	}
-
-	values := req.URL.Query()
-	taskId := values.Get("id")
-
-	state, err := getState()
-	if err != nil {
-		print(log_error, err)
-		writeResult2(w, responseResult2_T{false, "dsysb inner error", nil})
-		return
-	}
-
-	for _, task := range state.tasks {
-		h := task.hash()
-		tId := hex.EncodeToString(h[:])
-
-		if tId == taskId {
-			taskM := map[string]interface{} {
-				"address": task.address,
-				"instructs": hex.EncodeToString(task.instructs[:]),
-				"vData": hex.EncodeToString(task.vData[:]),
-			}
-			writeResult2(w, responseResult2_T{true, "ok", taskM})
-			return
-		}
-	}
-
-	writeResult2(w, responseResult2_T{false, "task " + taskId + " does not exist", nil})
 }

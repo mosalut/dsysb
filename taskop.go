@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 )
 
 /* ------ mov ------ */
@@ -293,13 +294,243 @@ func (task *task_T) dec64u(p0 int) {
 	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 8], x - 1)
 }
 
-func (task *task_T) getIndex(p0 int) error {
-	index, err := getIndex()
+func (task *task_T) vBytes(reg *reg_T, p0 int) {
+	copy(task.vData[p0:], reg.vBytes)
+}
+
+func (task *task_T) vUint8(reg *reg_T, p0 int) {
+	task.vData[p0] = reg.vUint8
+}
+
+func (task *task_T) vUint16(reg *reg_T, p0 int) {
+	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], reg.vUint16)
+}
+
+func (task *task_T) vUint32(reg *reg_T, p0 int) {
+	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 2], reg.vUint32)
+}
+
+func (task *task_T) vUint64(reg *reg_T, p0 int) {
+	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 2], reg.vUint64)
+}
+
+func (task *task_T) vInt8(reg *reg_T, p0 int) {
+	task.vData[p0] = reg.vInt8
+}
+
+func (task *task_T) vInt16(reg *reg_T, p0 int) {
+	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], uint16(reg.vInt16))
+}
+
+func (task *task_T) vInt32(reg *reg_T, p0 int) {
+	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 2], uint32(reg.vInt32))
+}
+
+func (task *task_T) vInt64(reg *reg_T, p0 int) {
+	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 2], uint64(reg.vInt64))
+}
+
+func (task *task_T) eq(reg *reg_T, p0 int, p1 int, p2 int) {
+	flag := uint8(task.vData[p2])
+
+	switch flag {
+	case 0:
+		x := task.vData[p0]
+		y := task.vData[p1]
+		reg.vBool = x == y
+	case 1:
+		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
+		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
+		reg.vBool = x == y
+	case 2:
+		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
+		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
+		reg.vBool = x == y
+	case 3:
+		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
+		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+		reg.vBool = x == y
+	default:
+		return
+	}
+}
+
+func (task *task_T) gt(reg *reg_T, p0 int, p1 int, p2 int) {
+	flag := uint8(task.vData[p2])
+
+	switch flag {
+	case 0:
+		x := task.vData[p0]
+		y := task.vData[p1]
+		reg.vBool = x > y
+	case 1:
+		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
+		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
+		reg.vBool = x > y
+	case 2:
+		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
+		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
+		reg.vBool = x > y
+	case 3:
+		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
+		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+		reg.vBool = x > y
+	case 4:
+		x := int8(task.vData[p0])
+		y := int8(task.vData[p1])
+		reg.vBool = x > y
+	case 5:
+		x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
+		y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
+		reg.vBool = x > y
+	case 6:
+		x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
+		y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
+		reg.vBool = x > y
+	case 7:
+		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
+		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
+		reg.vBool = x > y
+	default:
+		return
+	}
+}
+
+func (task *task_T) lt(reg *reg_T, p0 int, p1 int, p2 int) {
+	flag := uint8(task.vData[p2])
+
+	switch flag {
+	case 0:
+		x := task.vData[p0]
+		y := task.vData[p1]
+		reg.vBool = x < y
+	case 1:
+		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
+		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
+		reg.vBool = x < y
+	case 2:
+		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
+		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
+		reg.vBool = x < y
+	case 3:
+		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
+		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+		reg.vBool = x < y
+	case 4:
+		x := int8(task.vData[p0])
+		y := int8(task.vData[p1])
+		reg.vBool = x < y
+	case 5:
+		x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
+		y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
+		reg.vBool = x < y
+	case 6:
+		x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
+		y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
+		reg.vBool = x < y
+	case 7:
+		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
+		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
+		reg.vBool = x < y
+	default:
+		return
+	}
+}
+
+func (task *task_T) gteq(reg *reg_T, p0 int, p1 int, p2 int) {
+	flag := uint8(task.vData[p2])
+
+	switch flag {
+	case 0:
+		x := task.vData[p0]
+		y := task.vData[p1]
+		reg.vBool = x >= y
+	case 1:
+		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
+		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
+		reg.vBool = x >= y
+	case 2:
+		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
+		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
+		reg.vBool = x >= y
+	case 3:
+		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
+		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+		reg.vBool = x >= y
+	case 4:
+		x := int8(task.vData[p0])
+		y := int8(task.vData[p1])
+		reg.vBool = x >= y
+	case 5:
+		x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
+		y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
+		reg.vBool = x >= y
+	case 6:
+		x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
+		y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
+		reg.vBool = x >= y
+	case 7:
+		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
+		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
+		reg.vBool = x >= y
+	default:
+		return
+	}
+}
+
+func (task *task_T) lteq(reg *reg_T, p0 int, p1 int, p2 int) {
+	flag := uint8(task.vData[p2])
+
+	switch flag {
+	case 0:
+		x := task.vData[p0]
+		y := task.vData[p1]
+		reg.vBool = x <= y
+	case 1:
+		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
+		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
+		reg.vBool = x <= y
+	case 2:
+		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
+		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
+		reg.vBool = x <= y
+	case 3:
+		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
+		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+		reg.vBool = x <= y
+	case 4:
+		x := int8(task.vData[p0])
+		y := int8(task.vData[p1])
+		reg.vBool = x <= y
+	case 5:
+		x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
+		y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
+		reg.vBool = x <= y
+	case 6:
+		x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
+		y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
+		reg.vBool = x <= y
+	case 7:
+		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
+		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
+		reg.vBool = x <= y
+	default:
+		return
+	}
+}
+
+func (task *task_T) eqBytes(reg *reg_T, p0 int, p1 int, p2 int) {
+	length := int(binary.LittleEndian.Uint16(task.vData[p2:p2 + 2]))
+
+	reg.vBool = hex.EncodeToString(task.vData[p0:p0 + length]) == hex.EncodeToString(task.vData[p1:p1 + length])
+}
+
+func (task *task_T) getIndex(reg *reg_T) error {
+	var err error
+	reg.vUint32, err = getIndex()
 	if err != nil {
 		return err
 	}
-
-	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 4], index)
 
 	return nil
 }

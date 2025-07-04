@@ -18,7 +18,7 @@ type deployTask_T struct {
 	vData []byte
 	from string
 	nonce uint32
-	fee uint64
+	bytePrice uint32
 	signer *signer_T
 }
 
@@ -37,17 +37,17 @@ func (tx *deployTask_T) hash() [32]byte {
 	copy(bs[vDataPosition:fromPosition], tx.vData)
 	noncePosition := fromPosition + 34
 	copy(bs[fromPosition:noncePosition], tx.from)
-	feePosition := noncePosition + 4
-	binary.LittleEndian.PutUint32(bs[noncePosition:feePosition], uint32(tx.nonce))
-	signerPosition := feePosition + 8
-	binary.LittleEndian.PutUint64(bs[feePosition:signerPosition], uint64(tx.fee))
+	bytePricePosition := noncePosition + 4
+	binary.LittleEndian.PutUint32(bs[noncePosition:bytePricePosition], tx.nonce)
+	signerPosition := bytePricePosition + 4
+	binary.LittleEndian.PutUint32(bs[bytePricePosition:signerPosition], tx.bytePrice)
 
 	return sha256.Sum256(bs)
 }
 
 func (tx *deployTask_T) encode() []byte {
-	// 178 = 2 + 2 + 34 + 4 + 8 + 128
-	length := 178 + len(tx.instructs) + len(tx.vData)
+	// 174 = 2 + 2 + 34 + 4 + 4 + 128
+	length := 174 + len(tx.instructs) + len(tx.vData)
 	bs := make([]byte, length, length)
 	instructsLength := len(tx.instructs)
 	binary.LittleEndian.PutUint16(bs[:2], uint16(instructsLength))
@@ -60,17 +60,17 @@ func (tx *deployTask_T) encode() []byte {
 	copy(bs[vDataPosition:fromPosition], tx.vData)
 	noncePosition := fromPosition + 34
 	copy(bs[fromPosition:noncePosition], tx.from)
-	feePosition := noncePosition + 4
-	binary.LittleEndian.PutUint32(bs[noncePosition:feePosition], uint32(tx.nonce))
-	signerPosition := feePosition + 8
-	binary.LittleEndian.PutUint64(bs[feePosition:signerPosition], uint64(tx.fee))
+	bytePricePosition := noncePosition + 4
+	binary.LittleEndian.PutUint32(bs[noncePosition:bytePricePosition], tx.nonce)
+	signerPosition := bytePricePosition + 4
+	binary.LittleEndian.PutUint32(bs[bytePricePosition:signerPosition], tx.bytePrice)
 	copy(bs[signerPosition:], tx.signer.encode())
 
 	return bs
 }
 
 func (tx *deployTask_T) encodeForPool() []byte {
-	length0 := 178 + len(tx.instructs) + len(tx.vData)
+	length0 := 174 + len(tx.instructs) + len(tx.vData)
 	length := length0 + 2
 	bs := make([]byte, length, length)
 	binary.LittleEndian.PutUint16(bs[:2], uint16(length0))
@@ -90,10 +90,10 @@ func decodeDeployTask(bs []byte) *deployTask_T {
 	tx.vData = bs[vDataPosition:fromPosition]
 	noncePosition := fromPosition + 34
 	tx.from = string(bs[fromPosition:noncePosition])
-	feePosition := noncePosition + 4
-	tx.nonce = binary.LittleEndian.Uint32(bs[noncePosition:feePosition])
-	signerPosition := feePosition + 8
-	tx.fee = binary.LittleEndian.Uint64(bs[feePosition:signerPosition])
+	bytePricePosition := noncePosition + 4
+	tx.nonce = binary.LittleEndian.Uint32(bs[noncePosition:bytePricePosition])
+	signerPosition := bytePricePosition + 4
+	tx.bytePrice = binary.LittleEndian.Uint32(bs[bytePricePosition:signerPosition])
 	tx.signer = decodeSigner(bs[signerPosition:])
 
 	return tx
@@ -108,7 +108,7 @@ func (tx *deployTask_T) Map() map[string]interface{} {
 	txM["vData"] = hex.EncodeToString(tx.vData[:])
 	txM["from"] = tx.from
 	txM["nonce"] = tx.nonce
-	txM["fee"] = tx.fee
+	txM["bytePrice"] = tx.bytePrice
 	txM["signature"] = hex.EncodeToString(tx.signer.signature[:])
 
 	return txM
@@ -122,31 +122,32 @@ func (tx *deployTask_T) String() string {
 			"\tvData: %v\n" +
 			"\tfrom: %s\n" +
 			"\tnonce: %d\n" +
-			"\tfee: %d\n" +
-			"%s", tx.hash(), tx.instructs, tx.vData, tx.from, tx.nonce, tx.fee, tx.signer)
+			"\tbyte price: %d\n" +
+			"%s", tx.hash(), tx.instructs, tx.vData, tx.from, tx.nonce, tx.bytePrice, tx.signer)
 }
 
 func isDeploy(bs []byte) bool {
-	if(len(bs) < 2) {
+	length := len(bs)
+
+	if length < 174 || length > 65536 {
 		return false
 	}
 
 	instructsLength := binary.LittleEndian.Uint16(bs[:2])
 	vDataLengthPosition := 2 + instructsLength
-
-	if(uint16(len(bs)) < vDataLengthPosition) {
+	if(uint16(length) < instructsLength) {
 		return false
 	}
 
 	vDataPosition := vDataLengthPosition + 2
-	if(uint16(len(bs)) < vDataPosition) {
+	vDataLength := binary.LittleEndian.Uint16(bs[vDataLengthPosition:vDataPosition])
+	if(uint16(length) < (instructsLength + vDataPosition)) {
 		return false
 	}
 
-	vDataLength := binary.LittleEndian.Uint16(bs[vDataLengthPosition:vDataPosition])
 	fromPosition := vDataPosition + vDataLength
 
-	if(uint16(len(bs)) != fromPosition + 174) {
+	if(uint16(length) != fromPosition + 174) {
 		return false
 	}
 
@@ -158,11 +159,11 @@ func (dt *deployTask_T) validate(fromP2p bool) error {
 	defer txIdsMutex.Unlock()
 
 	if len(dt.instructs) + len(dt.vData) > 65358 {
-		return errors.New("warning: instructs' and vdata's length is too long")
+		return errors.New("Instructs' and vdata's length is too long")
 	}
 
-	if dt.fee == 0 {
-		fmt.Println("warning: got zero fee")
+	if dt.bytePrice == 0 {
+		return errors.New("Disallow zero byte price")
 	}
 
 	if !validateAddress(dt.from) {
@@ -213,6 +214,15 @@ func (dt *deployTask_T) validate(fromP2p bool) error {
 	return nil
 }
 
+func (tx *deployTask_T) length() int {
+	// 174 = 2 + 2 + 34 + 4 + 4 + 128
+	return 174 + len(tx.instructs) + len(tx.vData)
+}
+
+func (tx *deployTask_T) fee() uint64 {
+	return uint64(tx.length()) * uint64(tx.bytePrice)
+}
+
 func (dt *deployTask_T) verifySign() bool {
 	publicKey := ecdsa.PublicKey{elliptic.P256(), dt.signer.x, dt.signer.y}
 	txid := dt.hash()
@@ -241,14 +251,14 @@ func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) e
 		return errors.New("DT address is empty address")
 	}
 
-	if account.balance < dt.fee {
+	if account.balance < dt.fee() {
 		return errors.New("not enough minerals")
 	}
 
 	state.tasks = append(state.tasks, task)
 
-	account.balance -= dt.fee
-	coinbase.amount += dt.fee
+	account.balance -= dt.fee()
+	coinbase.amount += dt.fee()
 	account.nonce = dt.nonce
 
 	return nil

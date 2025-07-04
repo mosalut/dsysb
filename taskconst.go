@@ -1,3 +1,5 @@
+// dsysb
+
 package main
 
 const (
@@ -54,8 +56,25 @@ const (
 	ins_dec16u
 	ins_dec32u
 	ins_dec64u
+
+	ins_bytes
+	ins_uint8
+	ins_uint16
+	ins_uint32
+	ins_uint64
+	ins_int8
+	ins_int16
+	ins_int32
+	ins_int64
+
+	ins_eq
+	ins_gt
+	ins_lt
+	ins_gteq
+	ins_lteq
+	ins_eq_bytes
+
 	ins_height
 	ins_block
 	ins_transaction
-	ins_getIndex
 )
