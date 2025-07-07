@@ -130,7 +130,7 @@ type block_T struct {
 	head *blockHead_T
 	body *blockBody_T
 	state *state_T
-	stateLength uint32
+	statePosition uint32
 }
 
 func (block *block_T) encode() []byte {
@@ -145,12 +145,11 @@ func (block *block_T) encode() []byte {
 
 func decodeBlock(bs []byte) *block_T {
 	length := len(bs)
-	statePosition := binary.LittleEndian.Uint32(bs[length - 4:length])
 	block := &block_T{}
+	block.statePosition = binary.LittleEndian.Uint32(bs[length - 4:])
 	block.head = decodeBlockHead(bs[:bh_length])
-	block.body = decodeBlockBody(bs[bh_length:int(statePosition)])
-	block.state = decodeState(bs[int(statePosition):length - 4])
-	block.stateLength = binary.LittleEndian.Uint32(bs[length - 4:])
+	block.body = decodeBlockBody(bs[bh_length:int(block.statePosition)])
+	block.state = decodeState(bs[int(block.statePosition):length - 4])
 
 	return block
 }
