@@ -114,7 +114,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 
-		err = tx.validate(true)
+		err = tx.validate(nil, true)
 		if err != nil {
 			print(log_error, err)
 			return

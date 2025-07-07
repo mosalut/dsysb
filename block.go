@@ -279,7 +279,7 @@ func (block *block_T)validate() error {
 	}
 
 	for k, tx := range block.body.transactions[1:] {
-		err = tx.validate(true)
+		err = tx.validate(block.head, true)
 		if err != nil{
 			return err
 		}
@@ -290,7 +290,7 @@ func (block *block_T)validate() error {
 		}
 	}
 
-	err = block.body.transactions[0].validate(true)
+	err = block.body.transactions[0].validate(block.head, true)
 	if err != nil{
 		return err
 	}

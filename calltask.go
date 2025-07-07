@@ -89,7 +89,7 @@ func (tx *callTask_T) fee() uint64 {
 	return uint64(tx.length()) * uint64(tx.bytePrice)
 }
 
-func (ct *callTask_T) validate(fromP2p bool) error {
+func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 	txIdsMutex.Lock()
 	defer txIdsMutex.Unlock()
 

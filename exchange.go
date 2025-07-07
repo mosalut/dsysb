@@ -52,7 +52,7 @@ func decodeExchange(bs []byte) *exchange_T {
 	return ex
 }
 
-func (ex *exchange_T) validate(fromP2p bool) error {
+func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 	txIdsMutex.Lock()
 	defer txIdsMutex.Unlock()
 

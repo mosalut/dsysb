@@ -102,7 +102,7 @@ func (tx *createAsset_T) fee() uint64 {
 	return create_asset_length * uint64(tx.bytePrice)
 }
 
-func (ca *createAsset_T) validate(fromP2p bool) error {
+func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 	txIdsMutex.Lock()
 	defer txIdsMutex.Unlock()
 

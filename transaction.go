@@ -24,7 +24,7 @@ const error_wrong_type = "Wrong type"
 type transaction_I interface {
 	hash() [32]byte
 	encode() []byte
-	validate(bool) error
+	validate(*blockHead_T, bool) error
 	verifySign() bool
 	count(*state_T, *coinbase_T, int) error
 	encodeForPool() []byte
@@ -68,7 +68,7 @@ func sendRawTransaction(bs []byte) error {
 		return err
 	}
 
-	err = transaction.validate(false)
+	err = transaction.validate(nil, false)
 	if err != nil {
 		return err
 	}

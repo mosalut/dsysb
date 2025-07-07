@@ -53,10 +53,32 @@ func decodeCoinbase(bs []byte) *coinbase_T {
 	return coinbase
 }
 
-func (coinbase *coinbase_T) validate(fromP2p bool) error {
+func (coinbase *coinbase_T) validate(head *blockHead_T, fromP2p bool) error {
 	if !fromP2p {
 		return errors.New("illage type")
 	}
+
+	index := binary.LittleEndian.Uint32(head.prevHash[32:])
+
+	var amount uint64
+	n := index / 157680 // The blocks in three years.
+
+	switch n {
+	case 0:
+		amount = 5e10
+	case 1:
+		amount = 25e9
+	case 2:
+		amount = 125e8
+	default:
+		amount = 0
+	}
+
+	fmt.Println("amounts:", amount, coinbase.amount)
+	if amount != coinbase.amount {
+		return errors.New("The rewards and block height are not match")
+	}
+
 
 	return nil
 }

@@ -86,7 +86,7 @@ func (transfer *transfer_T) encodeWithoutSigner() []byte {
 	return bs
 }
 
-func (transfer *transfer_T) validate(fromP2p bool) error {
+func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 	txIdsMutex.Lock()
 	defer txIdsMutex.Unlock()
 

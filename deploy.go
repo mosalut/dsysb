@@ -154,7 +154,7 @@ func isDeploy(bs []byte) bool {
 	return true
 }
 
-func (dt *deployTask_T) validate(fromP2p bool) error {
+func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 	txIdsMutex.Lock()
 	defer txIdsMutex.Unlock()
 
