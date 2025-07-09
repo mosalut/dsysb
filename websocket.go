@@ -3,21 +3,17 @@
 package main
 
 import (
-	/* keepfunc */
 	"encoding/binary"
 	"encoding/hex"
 	"net/http"
-//	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb" // keepfunc
 )
 
 const (
-	WS_STATE = iota
-	WS_UPDATE
+	WS_START = iota
 	WS_MINED_BLOCK
-	WS_ADD_BLOCK
 	WS_ERR
 )
 
@@ -35,28 +31,6 @@ type socketData_T struct {
 type noticeData_T struct {
 	Event int `json:"event"`
 	Body interface{} `json:"body"`
-}
-
-type wsAddBlockData_T struct {
-	head *blockHead_T
-	poolCache *poolCache_T
-}
-
-func (wsAddBlockData *wsAddBlockData_T) encode() []byte {
-	bs := append(wsAddBlockData.head.encode(), wsAddBlockData.poolCache.encode()...)
-
-	return bs
-}
-
-func decodeWsAddBlockData(bs []byte) *wsAddBlockData_T {
-	blockHead := decodeBlockHead(bs[:bh_length])
-	poolCache := decodePoolCache(bs[bh_length:])
-	wsAddBlockData := &wsAddBlockData_T{
-		blockHead,
-		poolCache,
-	}
-
-	return wsAddBlockData
 }
 
 var upgrader = websocket.Upgrader {
@@ -85,7 +59,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		data := socketData_T{}
 		err := conn.ReadJSON(&data)
 		if err != nil {
-			if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+			if isWebsocketCloseError(err) {
 				conn.Close()
 				delete(minerConns, conn)
 				print(log_warning, err, "close normal closure")
@@ -96,18 +70,36 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch data.Event {
-		case WS_UPDATE:
-			print(log_info, "update")
+		case WS_START:
+			print(log_info, "start")
 
-			cache, err := poolToCache()
-			if err != nil {
-				print(log_error, err)
+			if blockchainSync.synchronizing {
+				err604 := minedError{"604", errSynchronizing.Error()}
+				noticeErrorBroadcast(err604)
+				print(log_info, err604)
 				continue
 			}
-			cache.transactions = cache.transactions[:0]
-			bs := cache.encode()
 
-			socketData := socketData_T { WS_UPDATE, bs }
+			address := string(data.Body)
+
+			block, err := makeBlockForMine(address)
+			if err != nil {
+				err607 := minedError{"607", err.Error()}
+				noticeErrorBroadcast(err607)
+				print(log_error, err607)
+
+				socketData := socketData_T { WS_ERR, []byte(err.Error()) }
+				err0 := conn.WriteJSON(socketData)
+				if err0 != nil {
+					print(log_error, err0)
+					continue
+				}
+
+				continue
+			}
+			bs := block.encode()
+
+			socketData := socketData_T { WS_START, bs }
 			err = conn.WriteJSON(socketData)
 			if err != nil {
 				print(log_error, err)
@@ -117,42 +109,24 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			print(log_info, "ws_update sent")
 		case WS_MINED_BLOCK:
 			if blockchainSync.synchronizing {
-				print(log_info, "new block, but synchronizing")
+				err604 := minedError{"604", errSynchronizing.Error()}
+				noticeErrorBroadcast(err604)
+				print(log_info, err604)
 				continue
 			}
 
 			print(log_info, "new block")
-			if len(data.Body) < 34 {
-				print(log_error, "Data length wrong")
-				socketData := socketData_T { WS_ERR, []byte("Data length wrong") }
-				err := conn.WriteJSON(socketData)
-				if err != nil {
-					print(log_error, conn.RemoteAddr, err)
-					continue
-				}
-				continue
-			}
 
-			wsAddBlockData := decodeWsAddBlockData(data.Body)
-			if wsAddBlockData == nil {
-				socketData := socketData_T { WS_ERR, []byte("Wallet address format wrong") }
-				err := conn.WriteJSON(socketData)
-				if err != nil {
-					print(log_error, conn.RemoteAddr, err)
-					continue
-				}
-				continue
-			}
-
-			blockBody := &blockBody_T { wsAddBlockData.poolCache.transactions }
-			indexLength := bh_length + len(blockBody.encode())
-			block := &block_T { wsAddBlockData.head, blockBody, wsAddBlockData.poolCache.state, uint32(indexLength)}
+			block := decodeBlock(data.Body)
 
 			// keepit
-			//	TODO block validation
+			// block validation
 			lBlock, err := getHashBlock()
 			if err != nil {
-				print(log_error, err)
+				err606 := minedError{"606", err.Error()}
+				noticeErrorBroadcast(err606)
+				print(log_error, err606)
+
 				continue
 			}
 
@@ -160,14 +134,27 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			lBlockHash := hex.EncodeToString(lBlock.head.hash[:])
 
 			if blockPrevHash != lBlockHash {
-				print(log_error, "The hash and prev hash are not match.")
+				err601 := minedError{"601", errPrevHashNotMatch.Error()}
+				noticeErrorBroadcast(err601)
+				print(log_error, err601)
 
-				socketData, err := makeMinedBlockData()
+				block, err := makeBlockForMine(block.body.transactions[0].(*coinbase_T).to)
 				if err != nil {
-					print(log_error, err)
+					err607 := minedError{"607", err.Error()}
+					noticeErrorBroadcast(err607)
+					print(log_error, err607)
+
+					socketData := socketData_T { WS_ERR, []byte(err.Error()) }
+					err0 := conn.WriteJSON(socketData)
+					if err0 != nil {
+						print(log_error, err0)
+						continue
+					}
+
 					continue
 				}
 
+				socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
 				err = conn.WriteJSON(socketData)
 				if err != nil {
 					print(log_error, conn.RemoteAddr, err)
@@ -179,14 +166,27 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if hex.EncodeToString(newMerkleTree(block.body.transactions).data[:]) != hex.EncodeToString(block.head.transactionRoot[:]) {
-				print(log_warning, "WS: The transactionRoot and it's data are not match.")
+				err602 := minedError{"602", errTransactionRootNotMatch.Error()}
+				noticeErrorBroadcast(err602)
+				print(log_error, err602)
 
-				socketData, err := makeMinedBlockData()
+				block, err := makeBlockForMine(block.body.transactions[0].(*coinbase_T).to)
 				if err != nil {
-					print(log_error, err)
+					err607 := minedError{"607", err.Error()}
+					noticeErrorBroadcast(err607)
+					print(log_error, err607)
+
+					socketData := socketData_T { WS_ERR, []byte(err.Error()) }
+					err0 := conn.WriteJSON(socketData)
+					if err0 != nil {
+						print(log_error, err0)
+						continue
+					}
+
 					continue
 				}
 
+				socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
 				err = conn.WriteJSON(socketData)
 				if err != nil {
 					print(log_error, conn.RemoteAddr, err)
@@ -199,14 +199,27 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 
 			h := block.state.hash()
 			if hex.EncodeToString(h[:]) != hex.EncodeToString(block.head.stateRoot[:]) {
-				print(log_warning, "WS: The stateRoot and it's data are not match.")
+				err603 := minedError{"603", errStateRootNotMatch.Error()}
+				noticeErrorBroadcast(err603)
+				print(log_error, err603)
 
-				socketData, err := makeMinedBlockData()
+				block, err := makeBlockForMine(block.body.transactions[0].(*coinbase_T).to)
 				if err != nil {
-					print(log_error, err)
+					err607 := minedError{"607", err.Error()}
+					noticeErrorBroadcast(err607)
+					print(log_error, err607)
+
+					socketData := socketData_T { WS_ERR, []byte(err.Error()) }
+					err0 := conn.WriteJSON(socketData)
+					if err0 != nil {
+						print(log_error, err0)
+						continue
+					}
+
 					continue
 				}
 
+				socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
 				err = conn.WriteJSON(socketData)
 				if err != nil {
 					print(log_error, conn.RemoteAddr, err)
@@ -228,11 +241,18 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			socketData, err := makeMinedBlockData()
+			broadcast(p2p_add_block_event, data.Body)
+
+			block, err = makeBlockForMine(block.body.transactions[0].(*coinbase_T).to)
 			if err != nil {
-				print(log_error, err)
+				err607 := minedError{"607", err.Error()}
+				noticeErrorBroadcast(err607)
+				print(log_error, err607)
+
 				continue
 			}
+
+			socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
 
 			for conn, _ := range minerConns {
 				err = conn.WriteJSON(socketData)
@@ -242,32 +262,8 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				print(log_info, conn.RemoteAddr(), "ws_state sent")
 			}
-
-			blockData := block.encode()
-			broadcast(p2p_add_block_event, blockData)
 		}
 	}
-}
-
-func makeMinedBlockData() (*socketData_T, error) {
-	cache, err := poolToCache()
-	if err != nil {
-		return nil, err
-	}
-
-	bs := cache.encode()
-
-	if len(transactionPool) <= 511 {
-		transactionPool = make([]transaction_I, 0, 511)
-	} else {
-		transactionPool = transactionPool[511:]
-	}
-
-	txIdsMutex.Lock()
-	txIds = make([]string, 0, 511)
-	txIdsMutex.Unlock()
-
-	return &socketData_T { WS_MINED_BLOCK, bs }, nil
 }
 
 // notice
@@ -286,7 +282,7 @@ func noticeSocketHandler(w http.ResponseWriter, r *http.Request) {
 		data := socketData_T{}
 		err := conn.ReadJSON(&data)
 		if err != nil {
-			if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+			if isWebsocketCloseError(err) {
 				conn.Close()
 				delete(noticeConns, conn)
 				print(log_warning, err, "close normal closure")
@@ -295,36 +291,6 @@ func noticeSocketHandler(w http.ResponseWriter, r *http.Request) {
 			print(log_error, err)
 			break
 		}
-
-		/*
-		switch data.Event {
-		case WS_UPDATE:
-			print(log_info, "update")
-
-			cache, err := poolToCache()
-			if err != nil {
-				print(log_error, err)
-				continue
-			}
-			cache.transactions = cache.transactions[:0]
-			bs := cache.encode()
-
-			socketData := socketData_T { WS_UPDATE, bs }
-			err = conn.WriteJSON(socketData)
-			if err != nil {
-				if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
-					conn.Close()
-					delete(noticeConns, conn)
-					print(log_warning, err, "close normal closure")
-					break
-				}
-				print(log_error, err)
-				continue
-			}
-
-			print(log_info, "ws_update sent")
-		}
-		*/
 	}
 }
 
@@ -332,31 +298,25 @@ func noticeError(conn *websocket.Conn, msg string) {
 	noticePush(conn, WS_NOTICE_ERR, msg)
 }
 
-func noticeAppend(conn *websocket.Conn, block *block_T) {
-	data := struct {
-		Hash string `json:"hash"`
-		Index uint32 `json:"index"`
-		StartTime int64 `json:"startTime"`
-		Transactions []string `json:"transactions"`
-	} {}
+func noticePush(conn *websocket.Conn, event int, data interface{}) error {
+	noticeData := noticeData_T { event, data }
 
-	data.Hash = hex.EncodeToString(block.head.hash[:])
-	data.Index = binary.LittleEndian.Uint32(block.head.hash[32:])
-	data.StartTime = int64(binary.LittleEndian.Uint64(block.head.timestamp[:]))
-
-	tLength := len(block.body.transactions)
-	data.Transactions = make([]string, tLength, tLength)
-	for k, tx := range block.body.transactions {
-		h := tx.hash()
-		data.Transactions[k] = hex.EncodeToString(h[:])
-	}
-
-	err := noticePush(conn, WS_NOTICE_APPEND, data)
+	err := conn.WriteJSON(noticeData)
 	if err != nil {
-		print(log_error, err)
+		if isWebsocketCloseError(err) {
+			conn.Close()
+			delete(noticeConns, conn)
+			print(log_warning, conn.RemoteAddr(), err, "close normal closure")
+			return nil
+		}
+		print(log_error, conn.RemoteAddr, err)
 		noticeError(conn, err.Error())
-		return
+		return err
 	}
+
+	print(log_debug, "sent")
+
+	return nil
 }
 
 func noticeAppendBroadcast(block *block_T) {
@@ -375,25 +335,10 @@ func noticeAppendBroadcast(block *block_T) {
 	noticeBroadcast(WS_NOTICE_APPEND, data)
 }
 
-func noticePush(conn *websocket.Conn, event int, data interface{}) error {
-	noticeData := noticeData_T { event, data }
-
-	err := conn.WriteJSON(noticeData)
-	if err != nil {
-		if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
-			conn.Close()
-			delete(noticeConns, conn)
-			print(log_warning, conn.RemoteAddr(), err, "close normal closure")
-			return nil
-		}
-		print(log_error, conn.RemoteAddr, err)
+func noticeErrorBroadcast(err error) {
+	for conn, _ := range noticeConns {
 		noticeError(conn, err.Error())
-		return err
 	}
-
-	print(log_debug, "sent")
-
-	return nil
 }
 
 func noticeBroadcast(event int, data interface{}) {
@@ -402,7 +347,7 @@ func noticeBroadcast(event int, data interface{}) {
 	for conn, _ := range noticeConns {
 		err := conn.WriteJSON(noticeData)
 		if err != nil {
-			if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+			if isWebsocketCloseError(err) {
 				conn.Close()
 				delete(noticeConns, conn)
 				print(log_warning, conn.RemoteAddr(), err, "close normal closure")
@@ -414,4 +359,25 @@ func noticeBroadcast(event int, data interface{}) {
 	}
 
 	print(log_debug, "batch sent")
+}
+
+func isWebsocketCloseError(err error) bool {
+	if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) ||
+	websocket.IsCloseError(err, websocket.CloseGoingAway) ||
+	websocket.IsCloseError(err, websocket.CloseProtocolError) ||
+	websocket.IsCloseError(err, websocket.CloseUnsupportedData) ||
+	websocket.IsCloseError(err, websocket.CloseNoStatusReceived) ||
+	websocket.IsCloseError(err, websocket.CloseAbnormalClosure) ||
+	websocket.IsCloseError(err, websocket.CloseInvalidFramePayloadData) ||
+	websocket.IsCloseError(err, websocket.ClosePolicyViolation) ||
+	websocket.IsCloseError(err, websocket.CloseMessageTooBig) ||
+	websocket.IsCloseError(err, websocket.CloseMandatoryExtension) ||
+	websocket.IsCloseError(err, websocket.CloseInternalServerErr) ||
+	websocket.IsCloseError(err, websocket.CloseServiceRestart) ||
+	websocket.IsCloseError(err, websocket.CloseTryAgainLater) ||
+	websocket.IsCloseError(err, websocket.CloseTLSHandshake) {
+		return true
+	}
+
+	return false
 }

@@ -14,6 +14,8 @@ const (
 	coinbase_length = 46
 	coinbase_amount_position = 34
 	coinbase_nonce_position = 42
+
+	three_year_blocks = 157680
 )
 
 type coinbase_T struct {
@@ -53,6 +55,20 @@ func decodeCoinbase(bs []byte) *coinbase_T {
 	return coinbase
 }
 
+func (coinbase *coinbase_T) rewards(index uint32) {
+	n := index / three_year_blocks // The blocks in three years.
+	switch n {
+	case 0:
+		coinbase.amount = 5e10
+	case 1:
+		coinbase.amount = 25e9
+	case 2:
+		coinbase.amount = 125e8
+	default:
+		coinbase.amount = 0
+	}
+}
+
 func (coinbase *coinbase_T) validate(head *blockHead_T, fromP2p bool) error {
 	if !fromP2p {
 		return errors.New("illage type")
@@ -61,7 +77,7 @@ func (coinbase *coinbase_T) validate(head *blockHead_T, fromP2p bool) error {
 	index := binary.LittleEndian.Uint32(head.prevHash[32:])
 
 	var amount uint64
-	n := index / 157680 // The blocks in three years.
+	n := index / three_year_blocks // The blocks in three years.
 
 	switch n {
 	case 0:
@@ -74,7 +90,6 @@ func (coinbase *coinbase_T) validate(head *blockHead_T, fromP2p bool) error {
 		amount = 0
 	}
 
-	fmt.Println("amounts:", amount, coinbase.amount)
 	if amount != coinbase.amount {
 		return errors.New("The rewards and block height are not match")
 	}

@@ -124,8 +124,32 @@ func decodeState(bs []byte) *state_T {
 	return state
 }
 
-func (state *state_T)hash() [32]byte {
+func (state *state_T) hash() [32]byte {
 	return sha256.Sum256(state.encode())
+}
+
+func (state *state_T) count(coinbase *coinbase_T)  {
+	for key, asset := range state.assets {
+		if asset.remain == 0 {
+			delete(state.assets, key)
+		}
+
+		coinbase.amount += uint64(asset.price)
+		asset.remain--
+	}
+
+	for key, task := range state.tasks {
+		if task.remain == 0 {
+			if len(state.tasks) - 1 == key {
+				state.tasks = state.tasks[:key]
+			} else {
+				state.tasks = append(state.tasks[:key], state.tasks[key + 1:]...)
+			}
+		}
+
+		coinbase.amount += uint64(task.price)
+		task.remain--
+	}
 }
 
 func (state *state_T)String() string {

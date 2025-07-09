@@ -9,9 +9,6 @@ import (
 	"net/http"
 )
 
-var txIds = make([]string, 0, 511)
-var txIdsMutex = &sync.RWMutex{}
-
 type txPool_T []transaction_I
 
 func (pool txPool_T) encode() []byte {
@@ -50,85 +47,6 @@ func decodeTxPool(bs []byte) txPool_T {
 var transactionPool = make(txPool_T, 0, 511)
 var poolMutex = &sync.RWMutex{}
 
-type poolCache_T struct {
-	prevHash [36]byte
-	bits [4]byte
-	state *state_T
-	transactions txPool_T
-}
-
-func (cache *poolCache_T) encode() []byte {
-	bs := cache.prevHash[:]
-	bs = append(bs, cache.bits[:]...)
-	bs = append(bs, cache.state.encode()...)
-	transactionsPosition := len(bs)
-
-	rawTransactions := cache.transactions.encode()
-	bs = append(bs, rawTransactions...)
-	bs = append(bs, []byte{0, 0, 0, 0}...)
-	binary.LittleEndian.PutUint32(bs[len(bs) - 4:], uint32(transactionsPosition))
-
-	return bs
-}
-
-func decodePoolCache(bs []byte) *poolCache_T {
-	cache := &poolCache_T{}
-
-	length := len(bs)
-	cache.prevHash = [36]byte(bs[:36])
-	cache.bits = [4]byte(bs[36:40])
-
-	start := length - 4
-	transactionsPosition := int(binary.LittleEndian.Uint32(bs[start:]))
-
-	cache.state = decodeState(bs[40:transactionsPosition])
-
-	start = transactionsPosition
-	cache.transactions = decodeTxPool(bs[start:length - 4])
-
-	return cache
-}
-
-/* keepfunc */
-func poolToCache() (*poolCache_T, error) {
-	var prevHash [36]byte
-
-	// keepit
-	block, err := getHashBlock()
-	if err == errZeroBlock {
-		print(log_warning, err)
-	} else if err != nil {
-		return nil, err
-	} else {
-		prevHash = block.head.hash
-	}
-
-	err = adjustTarget(block)
-	if err != nil {
-		print(log_error, err)
-		return nil, err
-	}
-
-	if len(transactionPool) <= 511 {
-		return &poolCache_T {
-			prevHash,
-		//	difficult_1_target, // keepit
-			block.head.bits,
-		//	firstState, // keepit
-			block.state,
-			transactionPool,
-		}, nil
-	}
-
-	// keepit
-	return &poolCache_T {
-		prevHash,
-		block.head.bits,
-		block.state,
-		transactionPool[:511],
-	}, nil
-}
-
 func txPoolHandler(w http.ResponseWriter, req *http.Request) {
 	cors(w)
 
@@ -141,9 +59,47 @@ func txPoolHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	bs := transactionPool.encode()
+//	bs := transactionPool.encode()
 
+	bsLength := len(transactionPool) * 32
+	bs := make([]byte, bsLength, bsLength)
+	var start int
+	end := start + 32
+	for _, tx := range transactionPool {
+		h := tx.hash()
+		copy(bs[start:end], h[:])
+
+		start = end
+		end = start + 32
+	}
 	writeResult(w, responseResult_T{true, "ok", bs})
+}
+
+func txInPoolHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	txid := values.Get("txid")
+
+	for _, tx := range transactionPool {
+		h := tx.hash()
+		if txid == hex.EncodeToString(h[:]) {
+			writeResult(w, responseResult_T{true, "ok", tx.encode()})
+			return
+		}
+
+	}
+
+	writeResult(w, responseResult_T{false, "Not found the txid in transaction pool", nil})
 }
 
 func deleteFromTransactionPool(hashStr string) {

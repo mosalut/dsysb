@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"io"
 	"net/http"
-	"errors"
 )
 
 const (
@@ -18,8 +17,6 @@ const (
 	type_deploy
 	type_call
 )
-
-const error_wrong_type = "Wrong type"
 
 type transaction_I interface {
 	hash() [32]byte
@@ -40,6 +37,12 @@ func decodeRawTransaction(bs []byte) (transaction_I, error) {
 	case coinbase_length:
 		tx = decodeCoinbase(bs)
 	case create_asset_length:
+		ok := isCall(bs)
+		if ok {
+			tx = decodeCallTask(bs)
+			break
+		}
+
 		tx = decodeCreateAsset(bs)
 	case transfer_length:
 		tx = decodeTransfer(bs)
@@ -56,7 +59,7 @@ func decodeRawTransaction(bs []byte) (transaction_I, error) {
 			tx = decodeCallTask(bs)
 			break
 		}
-		return nil, errors.New(error_wrong_type)
+		return nil, errWrongType
 	}
 
 	return tx, nil

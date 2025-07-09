@@ -29,8 +29,8 @@ func (tx *callTask_T) hash() [32]byte {
 	bytePriceEnd := nonceEnd + 4
 	length := bytePriceEnd + 128
 	bs := make([]byte, length, length)
-	copy(bs[:32], tx.taskId[:])
-	copy(bs[32:66], []byte(tx.from))
+	copy(bs[:34], []byte(tx.from))
+	copy(bs[34:66], tx.taskId[:])
 	copy(bs[66:paramsEnd], tx.params)
 	binary.LittleEndian.PutUint32(bs[paramsEnd:nonceEnd], tx.nonce)
 	binary.LittleEndian.PutUint32(bs[nonceEnd:bytePriceEnd], tx.bytePrice)
@@ -45,8 +45,8 @@ func (tx *callTask_T) encode() []byte {
 	bytePriceEnd := nonceEnd + 4
 	length := bytePriceEnd + 128
 	bs := make([]byte, length, length)
-	copy(bs[:32], tx.taskId[:])
-	copy(bs[32:66], []byte(tx.from))
+	copy(bs[:34], []byte(tx.from))
+	copy(bs[34:66], tx.taskId[:])
 	copy(bs[66:paramsEnd], tx.params)
 	binary.LittleEndian.PutUint32(bs[paramsEnd:nonceEnd], tx.nonce)
 	binary.LittleEndian.PutUint32(bs[nonceEnd:bytePriceEnd], tx.bytePrice)
@@ -68,8 +68,8 @@ func (tx *callTask_T) encodeForPool() []byte {
 
 func decodeCallTask(bs []byte) *callTask_T {
 	tx := &callTask_T{}
-	tx.taskId = [32]byte(bs[:32])
-	tx.from = string(bs[32:66])
+	tx.taskId = [32]byte(bs[34:66])
+	tx.from = string(bs[:34])
 	paramsEnd := len(bs) - 136 // 136 = 4 + 4 + 128
 	tx.params = bs[66:paramsEnd]
 	nonceEnd := paramsEnd + 4
@@ -90,9 +90,6 @@ func (tx *callTask_T) fee() uint64 {
 }
 
 func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
-	txIdsMutex.Lock()
-	defer txIdsMutex.Unlock()
-
 	if len(ct.params) > 65334 {
 		return errors.New("Params's length is too long")
 	}
@@ -113,13 +110,22 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 	// replay attack
 	txIdH := ct.hash()
 	txId := hex.EncodeToString(txIdH[:])
-	for _, id := range txIds {
-		if txId == id {
+	for k, tx := range transactionPool {
+		h := tx.hash()
+		if txId == hex.EncodeToString(h[:]) {
 			if fromP2p {
-				deleteFromTransactionPool(txId)
+			//	deleteFromTransactionPool(txId)
+				poolMutex.Lock()
+				if len(transactionPool) - 1 == k {
+					transactionPool = transactionPool[:k]
+				} else {
+					transactionPool = append(transactionPool[:k], transactionPool[k + 1:]...)
+				}
+				poolMutex.Unlock()
 				return nil
 			}
-			return errors.New("Replay attack: txid:" + txId)
+
+			return errors.New("Replay attack: txid: " + txId)
 		}
 	}
 
@@ -143,8 +149,6 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 	if !ok {
 		return errors.New("Invalid signature")
 	}
-
-	txIds = append(txIds, txId)
 
 	return nil
 }
@@ -193,8 +197,8 @@ func (tx *callTask_T) Map() map[string]interface{} {
 	h := tx.hash()
 	txM["txid"] = hex.EncodeToString(h[:])
 	txM["type"] = type_call
-	txM["taskId"] = hex.EncodeToString(tx.taskId[:])
 	txM["from"] = tx.from
+	txM["taskId"] = hex.EncodeToString(tx.taskId[:])
 	txM["params"] = hex.EncodeToString(tx.params[:])
 	txM["nonce"] = tx.nonce
 	txM["byte price"] = tx.bytePrice
@@ -208,13 +212,13 @@ func (tx *callTask_T) String() string {
 	return fmt.Sprintf(
 		"\ttxid:\t%064x\n" +
 			"\ttype:\tcall\n" +
-			"\ttask id: %x\n" +
 			"\tfrom: %s\n" +
+			"\ttask id: %x\n" +
 			"\tparams: %v\n" +
 			"\tnonce: %d\n" +
 			"\tbyte price: %d\n" +
 			"\tfee: %d\n" +
-			"%s", tx.hash(), tx.taskId, tx.from, tx.params, tx.nonce, tx.bytePrice, tx.fee(), tx.signer)
+			"\tsignature: %s", tx.hash(), tx.from, tx.taskId, tx.params, tx.nonce, tx.bytePrice, tx.fee(), tx.signer)
 }
 
 func isCall(bs []byte) bool {
@@ -223,5 +227,5 @@ func isCall(bs []byte) bool {
 		return false
 	}
 
-	return validateAddress(string(bs[32:66]))
+	return validateAddress(string(bs[:34]))
 }

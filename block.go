@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"net/http"
-	"errors"
+	"time"
 	"fmt"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -23,16 +23,6 @@ const (
 	bh_time_position = 140
 	bh_nonce_position = 148
 )
-
-var errBlockIdNotMatch = errors.New("block hash and index are not match.")
-var errBlockHashFormat = errors.New("invalid block hash format.")
-var errPrevHashNotMatch = errors.New("state prev hash and block prev hash are not match.")
-var errZeroBlock = errors.New("Zero block")
-var errBlockHashing = errors.New("block hash and it's data are not match")
-var errBits = errors.New("The bits are not match")
-var errTransactionRootHash = errors.New("The transaction root and it's hash root are not match")
-var errStateRootHash = errors.New("The state and it's hash root are not match")
-var errStateRoot = errors.New("The state roots are not match")
 
 // Head:
 // 	[:36] - prev hash
@@ -190,8 +180,8 @@ func getBlockByHash(hash []byte) (*block_T, error) {
 		return nil, err
 	}
 
-	hash0 := fmt.Sprintf("%x", hash)
-	hash1 := fmt.Sprintf("%x", block.head.hash)
+	hash0 := hex.EncodeToString(hash)
+	hash1 := hex.EncodeToString(block.head.hash[:])
 	if hash0 != hash1 {
 		return nil, errBlockIdNotMatch
 	}
@@ -290,15 +280,14 @@ func (block *block_T)validate() error {
 		}
 	}
 
-	err = block.body.transactions[0].validate(block.head, true)
-	if err != nil{
-		return err
-	}
+	block.body.transactions[0].validate(block.head, true)
 
+	/*
 	err = block.body.transactions[0].count(prevBlock.state, nil, 0)
 	if err != nil{
 		return err
 	}
+	*/
 
 	return nil
 }
@@ -336,73 +325,57 @@ func blockHandler(w http.ResponseWriter, req *http.Request) {
 	writeResult(w, responseResult_T{true, "ok", block.encode()})
 }
 
-func block2Handler(w http.ResponseWriter, req *http.Request) {
-	cors(w)
-
-	switch req.Method {
-	case http.MethodOptions:
-		return
-	case http.MethodGet:
-	default:
-		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
-		return
+func makeBlockForMine(address string) (*block_T, error) {
+	block, err := getHashBlock()
+	if err == errZeroBlock {
+		print(log_warning, err)
+	} else if err != nil {
+		return nil, err
 	}
 
-	values := req.URL.Query()
-	hash := values.Get("index")
-
-	height, err := strconv.Atoi(hash)
+	err = adjustTarget(block)
 	if err != nil {
-		writeResult2(w, responseResult2_T{false, err.Error() + " height should be a number!", nil})
-		return
+		return nil, err
 	}
 
-	buffer := make([]byte, 4, 4)
-	binary.LittleEndian.PutUint32(buffer, uint32(height))
+	index := binary.LittleEndian.Uint32(block.head.hash[32:])
+	coinbase := &coinbase_T {}
+	coinbase.to = address
+	coinbase.rewards(index)
+	coinbase.nonce = index
 
-	block, err := getBlock(buffer)
-	if err != nil {
-		writeResult2(w, responseResult2_T{false, err.Error(), nil})
-		return
+	block.body.transactions = txPool_T{ coinbase }
+
+	if len(transactionPool) <= 511 {
+		block.body.transactions = append(block.body.transactions, transactionPool...)
+		transactionPool = transactionPool[:0]
+	} else {
+		block.body.transactions = append(block.body.transactions, transactionPool[:511]...)
+		transactionPool = transactionPool[512:]
 	}
 
-	block2 := struct {
-		Head *struct {
-			PrevHash string `json:"prevHash"`
-			Hash string `json:"hash"`
-			StateRoot string `json:"stateRoot"`
-			TransactionRoot string `json:"transactionRoot"`
-			Bits string `json:"bits"`
-			Timestamp int64 `json:"timestamp"`
-			Nonce uint32 `json:"nonce"`
-		} `json:"head"`
-		Body []string `json:"body"`
-	} {}
+	for i := 1; i < len(block.body.transactions); {
+		err := block.body.transactions[i].count(block.state, block.body.transactions[0].(*coinbase_T), i)
+		if err != nil {
+			block.body.transactions = append(block.body.transactions[:i], block.body.transactions[i + 1:]...)
 
-	block2.Head = &struct {
-		PrevHash string `json:"prevHash"`
-		Hash string `json:"hash"`
-		StateRoot string `json:"stateRoot"`
-		TransactionRoot string `json:"transactionRoot"`
-		Bits string `json:"bits"`
-		Timestamp int64 `json:"timestamp"`
-		Nonce uint32 `json:"nonce"`
-	} {}
-	block2.Head.PrevHash = hex.EncodeToString(block.head.prevHash[:])
-	block2.Head.Hash = hex.EncodeToString(block.head.hash[:])
-	block2.Head.StateRoot = hex.EncodeToString(block.head.stateRoot[:])
-	block2.Head.TransactionRoot = hex.EncodeToString(block.head.transactionRoot[:])
-	block2.Head.Bits = hex.EncodeToString(block.head.bits[:])
-	block2.Head.Timestamp = int64(binary.LittleEndian.Uint64(block.head.timestamp[:]))
-	block2.Head.Nonce = uint32(binary.LittleEndian.Uint32(block.head.nonce[:]))
+			err605 := makeBlockError{"605:", err.Error()}
+			print(log_warning, err605)
+			noticeErrorBroadcast(err605)
 
-	tLength := len(block.body.transactions)
-	block2.Body = make([]string, tLength, tLength)
+			continue
+		}
 
-	for k, tx := range block.body.transactions {
-		h := tx.hash()
-		block2.Body[k] = hex.EncodeToString(h[:])
+		i++
 	}
 
-	writeResult2(w, responseResult2_T{true, "ok", block2})
+	block.body.transactions[0].count(block.state, nil, 0)
+
+	block.head.prevHash = block.head.hash
+
+	block.head.stateRoot = block.state.hash()
+	block.head.transactionRoot = newMerkleTree(block.body.transactions).data
+	binary.LittleEndian.PutUint64(block.head.timestamp[:], uint64(time.Now().Unix()))
+
+	return block, nil
 }

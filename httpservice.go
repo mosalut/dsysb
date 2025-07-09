@@ -30,6 +30,7 @@ func runHttpServer(port string) {
 	http.HandleFunc("/transaction2", getTransaction2Handler)
 
 	http.HandleFunc("/txpool", txPoolHandler)
+	http.HandleFunc("/txinpool", txInPoolHandler)
 
 	server := http.Server {
 		Addr: "0.0.0.0:" + port,

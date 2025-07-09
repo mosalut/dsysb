@@ -28,38 +28,54 @@ type task_T struct {
 	address string
 	instructs []uint8
 	vData []byte
+	nonce uint32
+	price uint32
+	blocks uint32
+	remain uint32
 }
 
 func (task *task_T) encode() []byte {
 	leng0 := len(task.instructs)
 	leng1 := len(task.vData)
 	leng := leng0 + leng1
-	length := leng + 36 // 36 = address:34 + leng0:2
+	length := leng + 52 // 52 = address:34 + leng0:2 + nonce:4 + price:4 + blocks:4 + remain:4
 	bs := make([]byte, length, length)
 	copy(bs[:34], []byte(task.address))
 	binary.LittleEndian.PutUint16(bs[34:36], uint16(leng0))
 	copy(bs[36:36 + leng0], []byte(task.instructs))
-	copy(bs[36 + leng0:], task.vData)
+	copy(bs[36 + leng0:length - 16], task.vData)
+	binary.LittleEndian.PutUint32(bs[length - 16:length - 12], task.nonce)
+	binary.LittleEndian.PutUint32(bs[length - 12:length - 8], task.price)
+	binary.LittleEndian.PutUint32(bs[length - 8:length - 4], task.blocks)
+	binary.LittleEndian.PutUint32(bs[length - 4:], task.remain)
 
 	return bs
 }
 
 func (task *task_T) hash() [32]byte {
 	leng := len(task.instructs)
-	length := leng + 34
+	length := leng + 46 // 46 = address:34 + leng:2 + nonce:4 + price:4 + blocks:4
 	bs := make([]byte, length, length)
 	copy(bs[:34], []byte(task.address))
 	copy(bs[34:34 + leng], []byte(task.instructs))
+	binary.LittleEndian.PutUint32(bs[length - 12:length - 8], task.nonce)
+	binary.LittleEndian.PutUint32(bs[length - 8:length - 4], task.price)
+	binary.LittleEndian.PutUint32(bs[length - 4:], task.blocks)
 
 	return sha256.Sum256(bs)
 }
 
 func decodeTask(bs []byte) *task_T {
+	length := len(bs)
 	task := &task_T{}
 	task.address = string(bs[:34])
 	leng0 := int(binary.LittleEndian.Uint16(bs[34:36]))
 	task.instructs = bs[36:36 + leng0]
-	task.vData = bs[36 + leng0:]
+	task.vData = bs[36 + leng0:length - 16]
+	task.nonce = binary.LittleEndian.Uint32(bs[length - 16:length - 12])
+	task.price = binary.LittleEndian.Uint32(bs[length - 12:length - 8])
+	task.blocks = binary.LittleEndian.Uint32(bs[length - 8:length - 4])
+	task.remain = binary.LittleEndian.Uint32(bs[length - 4:])
 
 	return task
 }
@@ -67,7 +83,7 @@ func decodeTask(bs []byte) *task_T {
 func (task *task_T) deploy() string {
 	h := task.hash()
 	key := hex.EncodeToString(h[:])
-//	tasks = append(tasks, task)
+//	tasks = append(tasks, task) // for go testing
 	return key
 }
 

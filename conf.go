@@ -2,7 +2,6 @@ package main
 
 import (
 	"gopkg.in/ini.v1"
-	"log"
 )
 
 const __CONF__ = "config"
@@ -10,12 +9,7 @@ const __CONF__ = "config"
 var conf *config
 
 type config struct {
-	version string
-	connectionNum int // the max p2p connections
-	remoteHost string // the remote p2p host address
-	ip string // The P2P host IP
-	port int // The P2P host port
-	httpPort string // HTTP run on
+	remoteHosts []string // the remote p2p host addresses
 }
 
 func (c *config) read() error {
@@ -24,17 +18,6 @@ func (c *config) read() error {
 		return err
 	}
 
-	c.version = cfg.Section("").Key("version").String()
-	c.connectionNum, err = cfg.Section("").Key("connection_num").Int()
-	if err != nil {
-		log.Fatal(err)
-	}
-	c.remoteHost = cfg.Section("").Key("remote_host").String()
-	c.ip = cfg.Section("").Key("ip").String()
-	c.port, err = cfg.Section("").Key("port").Int()
-	if err != nil {
-		log.Fatal(err)
-	}
-	c.httpPort = cfg.Section("").Key("http_port").String()
+	c.remoteHosts = cfg.Section(ini.DEFAULT_SECTION).Key("remote_hosts").Strings(",")
 	return nil
 }

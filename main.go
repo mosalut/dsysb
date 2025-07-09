@@ -4,7 +4,6 @@ import (
 	"flag"
 	"strconv"
 	"log"
-//	"fmt"
 
 	"github.com/mosalut/q2p"
 )
@@ -26,15 +25,43 @@ func init() {
 	cmdFlag = &cmdFlag_T{}
 	readFlags(cmdFlag)
 	flag.Parse()
-	cmdFlag.networkID = 0
+//	cmdFlag.networkID = 0x0 // 0:mainnet
+//	cmdFlag.networkID = 0x1 // 0x1~0x10:testnet
+	cmdFlag.networkID = 0x10 // 0x10:dev
+
+	if cmdFlag.networkID == 0x10 {
+		// dev
+		stdBlockNum = 100 // for test faster
+		stdBlockBatchSeconds = 60000 // 600 * 100 for dev faster
+		difficult_1_target = [4]byte{ 0x1f, 0x00, 0xff, 0xff }
+
+	} else {
+		// others
+		stdBlockNum = 1024
+		stdBlockBatchSeconds = 614400 // 600 * 1024
+		difficult_1_target = [4]byte{ 0x1d, 0, 0xff, 0xff }
+	}
+
+	conf = &config{}
 }
 
 func main() {
+	err := conf.read()
+	if err != nil {
+		return
+	}
+
 	showLogo()
 	log.Println(*cmdFlag)
 
 	if cmdFlag.remoteHost != "" {
 		seedAddrs[cmdFlag.remoteHost] = false
+	} else {
+		for _, v := range conf.remoteHosts {
+			seedAddrs[v] = false
+		}
+
+		conf.remoteHosts = nil
 	}
 
 	if cmdFlag.logFile {
@@ -55,7 +82,7 @@ func main() {
 	initDB()
 	initIndex()
 
-	err := peer.Run()
+	err = peer.Run()
 	if err != nil {
 		log.Fatal(err)
 	}

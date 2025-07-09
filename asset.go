@@ -3,6 +3,8 @@
 package main
 
 import (
+	"sort"
+	"math/big"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -86,11 +88,32 @@ func (asset *asset_T) String() string {
 }
 
 type assetPool_T map[string]*asset_T  // key is an assetId
+
 func (pool assetPool_T) encode() []byte {
-	length := len(pool) * asset_length
+	length0 := len(pool)
+	length := length0 * asset_length
+
+	keys := make([]string, 0, length0)
+	for k, _ := range pool {
+		keys = append(keys, k)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		bsi := []byte(keys[i])
+		bsj := []byte(keys[j])
+
+		a := big.NewInt(0)
+		a.SetBytes(bsi)
+
+		b := big.NewInt(0)
+		b.SetBytes(bsj)
+
+		return a.Cmp(b) > 0
+	})
+
 	bs := make([]byte, 0, length)
-	for _, asset := range pool {
-		bs = append(bs, asset.encode()...)
+	for _, key := range keys {
+		bs = append(bs, pool[key].encode()...)
 	}
 
 	return bs

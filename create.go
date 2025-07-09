@@ -103,9 +103,6 @@ func (tx *createAsset_T) fee() uint64 {
 }
 
 func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
-	txIdsMutex.Lock()
-	defer txIdsMutex.Unlock()
-
 	matched, err := regexp.MatchString("^[a-zA-Z0-9]{5,10}$", ca.name)
 	if err != nil {
 		return err
@@ -130,6 +127,14 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("`" + ca.symbol + "` has been kept")
 	}
 
+	if ca.price == 0 {
+		return errors.New("Asset's price must > 0")
+	}
+
+	if ca.blocks < 10000 {
+		return errors.New("Asset's blocks must >= 10000")
+	}
+
 	if ca.bytePrice == 0 {
 		return errors.New("Disallow zero byte price")
 	}
@@ -139,20 +144,24 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("Unsigned transaction")
 	}
 
-	/*
-	poolMutex.Lock()
-	defer poolMutex.Unlock()
-	*/
-
 	// replay attack
 	txIdH := ca.hash()
 	txId := hex.EncodeToString(txIdH[:])
-	for _, id := range txIds {
-		if txId == id {
+	for k, tx := range transactionPool {
+		h := tx.hash()
+		if txId == hex.EncodeToString(h[:]) {
 			if fromP2p {
-				deleteFromTransactionPool(txId)
+			//	deleteFromTransactionPool(txId)
+				poolMutex.Lock()
+				if len(transactionPool) - 1 == k {
+					transactionPool = transactionPool[:k]
+				} else {
+					transactionPool = append(transactionPool[:k], transactionPool[k + 1:]...)
+				}
+				poolMutex.Unlock()
 				return nil
 			}
+
 			return errors.New("Replay attack: txid: " + txId)
 		}
 	}
@@ -177,8 +186,6 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 	if !ok {
 		return errors.New("Invalid signature")
 	}
-
-	txIds = append(txIds, txId)
 
 	return nil
 }
@@ -250,6 +257,7 @@ func (ca *createAsset_T) Map() map[string]interface{} {
 
 func (ca *createAsset_T) String() string {
 	return fmt.Sprintf(
+		"txid:\t%064x\n" +
 		"\tname: %s\n" +
 		"\tsymbol: %s\n" +
 		"\tdecimals: %d\n" +
@@ -260,5 +268,5 @@ func (ca *createAsset_T) String() string {
 		"\tnonce: %d\n" +
 		"\tbyte price: %d\n" +
 		"\tfee: %d\n" +
-		"%s", ca.name, ca.symbol, ca.decimals, ca.totalSupply, ca.price, ca.blocks, ca.from, ca.nonce, ca.bytePrice, ca.fee(), ca.signer)
+		"\tsignature: %s", ca.hash(), ca.name, ca.symbol, ca.decimals, ca.totalSupply, ca.price, ca.blocks, ca.from, ca.nonce, ca.bytePrice, ca.fee(), ca.signer)
 }

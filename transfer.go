@@ -87,9 +87,6 @@ func (transfer *transfer_T) encodeWithoutSigner() []byte {
 }
 
 func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
-	txIdsMutex.Lock()
-	defer txIdsMutex.Unlock()
-
 	if transfer.from == transfer.to {
 		return errors.New("Transfer to self is not allowed")
 	}
@@ -99,20 +96,23 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("Unsigned transaction")
 	}
 
-	/*
-	poolMutex.Lock()
-	defer poolMutex.Unlock()
-	*/
-
-	// replay attack
 	txIdH := transfer.hash()
 	txId := hex.EncodeToString(txIdH[:])
-	for _, id := range txIds {
-		if txId == id {
+	for k, tx := range transactionPool {
+		h := tx.hash()
+		if txId == hex.EncodeToString(h[:]) {
 			if fromP2p {
-				deleteFromTransactionPool(txId)
+			//	deleteFromTransactionPool(txId)
+				poolMutex.Lock()
+				if len(transactionPool) - 1 == k {
+					transactionPool = transactionPool[:k]
+				} else {
+					transactionPool = append(transactionPool[:k], transactionPool[k + 1:]...)
+				}
+				poolMutex.Unlock()
 				return nil
 			}
+
 			return errors.New("Replay attack: txid: " + txId)
 		}
 	}
@@ -146,8 +146,6 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 	if !ok {
 		return errors.New("Invalid signature")
 	}
-
-	txIds = append(txIds, txId)
 
 	return nil
 }

@@ -53,9 +53,6 @@ func decodeExchange(bs []byte) *exchange_T {
 }
 
 func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
-	txIdsMutex.Lock()
-	defer txIdsMutex.Unlock()
-
 	if ex[0].from != ex[1].to || ex[0].to != ex[1].from {
 		return errors.New("The exchange addresses are not match")
 	}
@@ -68,12 +65,21 @@ func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 	// replay attack
 	txIdH := ex.hash()
 	txId := hex.EncodeToString(txIdH[:])
-	for _, id := range txIds {
-		if txId == id {
+	for k, tx := range transactionPool {
+		h := tx.hash()
+		if txId == hex.EncodeToString(h[:]) {
 			if fromP2p {
-				deleteFromTransactionPool(txId)
+			//	deleteFromTransactionPool(txId)
+				poolMutex.Lock()
+				if len(transactionPool) - 1 == k {
+					transactionPool = transactionPool[:k]
+				} else {
+					transactionPool = append(transactionPool[:k], transactionPool[k + 1:]...)
+				}
+				poolMutex.Unlock()
 				return nil
 			}
+
 			return errors.New("Replay attack: txid: " + txId)
 		}
 	}
@@ -108,8 +114,6 @@ func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 	if !ok {
 		return errors.New("Invalid signature")
 	}
-
-	txIds = append(txIds, txId)
 
 	return nil
 }

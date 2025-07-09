@@ -7,24 +7,17 @@ import (
 	"encoding/binary"
 )
 
-const (
-	stdSeconds = 600 // ten minutes
-//	stdBlockNum = 1024
-//	std1026Seconds = 614400 // 600 * 1024
+const stdSeconds = 600 // ten minutes
 
-	stdBlockNum = 100 // for test faster
-	std1026Seconds = 60000 // 600 * 100 for test faster
+var (
+	stdBlockNum uint32
+	stdBlockBatchSeconds int64
+	difficult_1_target [4]byte
 )
-
-// faster
-var difficult_1_target = [4]byte{ 0x1f, 0x00, 0xff, 0xff }
-
-// normal
-// var difficult_1_target = [4]byte{ 0x1d, 0, 0xff, 0xff }
 
 func adjustTarget(block *block_T) error {
 	index := binary.LittleEndian.Uint32(block.head.hash[32:])
-	if int(index) % stdBlockNum != 2 || index < stdBlockNum {
+	if index % stdBlockNum != 2 || index < stdBlockNum {
 		return nil
 	}
 
@@ -45,9 +38,13 @@ func adjustTarget(block *block_T) error {
 	target := bitsToTarget(block.head.bits[:])
 	x := big.NewInt(0)
 	x = x.Mul(target, big.NewInt(timestampDiff))
-	x.Div(x, big.NewInt(std1026Seconds))
+	x.Div(x, big.NewInt(stdBlockBatchSeconds))
 
-	block.head.bits = targetToBits(x)
+	if x.Cmp(bitsToTarget(difficult_1_target[:])) > 0 {
+		block.head.bits = difficult_1_target
+	} else {
+		block.head.bits = targetToBits(x)
+	}
 
 	return nil
 }
