@@ -15,9 +15,23 @@ var (
 	difficult_1_target [4]byte
 )
 
+func initTargetValues() {
+	if cmdFlag.networkID == 0x10 {
+		// dev
+		stdBlockNum = 100 // for test faster
+		stdBlockBatchSeconds = 60000 // 600 * 100 for dev faster
+		difficult_1_target = [4]byte{ 0x1f, 0x00, 0xff, 0xff }
+	} else {
+		// others
+		stdBlockNum = 1024
+		stdBlockBatchSeconds = 614400 // 600 * 1024
+		difficult_1_target = [4]byte{ 0x1d, 0, 0xff, 0xff }
+	}
+}
+
 func adjustTarget(block *block_T) error {
 	index := binary.LittleEndian.Uint32(block.head.hash[32:])
-	if index % stdBlockNum != 2 || index < stdBlockNum {
+	if index % stdBlockNum != 1 || index < stdBlockNum {
 		return nil
 	}
 

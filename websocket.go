@@ -14,6 +14,7 @@ import (
 const (
 	WS_START = iota
 	WS_MINED_BLOCK
+	WS_PREPARED_BLOCK
 	WS_ERR
 )
 
@@ -154,7 +155,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
+				socketData := socketData_T { WS_PREPARED_BLOCK, block.encode() }
 				err = conn.WriteJSON(socketData)
 				if err != nil {
 					print(log_error, conn.RemoteAddr, err)
@@ -186,7 +187,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
+				socketData := socketData_T { WS_PREPARED_BLOCK, block.encode() }
 				err = conn.WriteJSON(socketData)
 				if err != nil {
 					print(log_error, conn.RemoteAddr, err)
@@ -219,7 +220,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
+				socketData := socketData_T { WS_PREPARED_BLOCK, block.encode() }
 				err = conn.WriteJSON(socketData)
 				if err != nil {
 					print(log_error, conn.RemoteAddr, err)
@@ -243,6 +244,16 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 
 			broadcast(p2p_add_block_event, data.Body)
 
+			socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
+			for conn, _ := range minerConns {
+				err = conn.WriteJSON(socketData)
+				if err != nil {
+					print(log_error, conn.RemoteAddr, err)
+					continue
+				}
+				print(log_info, conn.RemoteAddr(), "ws_state mined sent")
+			}
+
 			block, err = makeBlockForMine(block.body.transactions[0].(*coinbase_T).to)
 			if err != nil {
 				err607 := minedError{"607", err.Error()}
@@ -252,8 +263,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
-
+			socketData = socketData_T { WS_PREPARED_BLOCK, block.encode() }
 			for conn, _ := range minerConns {
 				err = conn.WriteJSON(socketData)
 				if err != nil {
@@ -279,7 +289,7 @@ func noticeSocketHandler(w http.ResponseWriter, r *http.Request) {
 	noticeConns[conn] = nil
 
 	for {
-		data := socketData_T{}
+		data := noticeData_T{}
 		err := conn.ReadJSON(&data)
 		if err != nil {
 			if isWebsocketCloseError(err) {

@@ -20,6 +20,8 @@ const firstBlock = "000000000000000000000000000000000000000000000000000000000000
 // 1d00ffff
 // const firstBlock = ""
 
+var networkID uint16
+
 type blockchainSync_T struct {
 	rAddr *net.UDPAddr
 	targetIndex uint32

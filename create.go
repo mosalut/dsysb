@@ -108,7 +108,7 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 		return err
 	}
 	if !matched {
-		return errors.New("The length of `name` must between 5 to 10, and the characters must be littles or numbers")
+		return errors.New("The length of `name` must between 5 to 10, and the characters must be letters or numbers")
 	}
 
 	if ca.name == "dsysb" || ca.name == "DSYSB" {
@@ -120,7 +120,7 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 		return err
 	}
 	if !matched {
-		return errors.New("The length of `symbol` must between 3 to 5, and the characters must be littles or numbers")
+		return errors.New("The length of `symbol` must between 3 to 5, and the characters must be letters or numbers")
 	}
 
 	if ca.symbol == "dsb" || ca.symbol == "DSB" {
