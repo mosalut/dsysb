@@ -16,11 +16,17 @@ import (
 )
 
 const (
-	create_asset_length = 202
-	create_asset_from_position = 32
-	create_asset_nonce_position = 66
-	create_asset_byte_price_position = 70
-	create_asset_signer_position = 74
+	create_length = 203
+	create_name_position = 1
+	create_symbol_position = 11
+	create_decimals_position = 16
+	create_total_supply_position = 17
+	create_price_position = 25
+	create_blocks_position = 29
+	create_from_position = 33
+	create_nonce_position = 67
+	create_byte_price_position = 71
+	create_signer_position = 75
 )
 
 type createAsset_T struct {
@@ -37,40 +43,42 @@ type createAsset_T struct {
 }
 
 func (tx *createAsset_T) hash() [32]byte {
-	bs := make([]byte, create_asset_length, create_asset_length)
-	copy(bs[:asset_symbol_position], []byte(tx.name))
-	copy(bs[asset_symbol_position:asset_decimals_position], []byte(tx.symbol))
-	bs[asset_decimals_position] = byte(tx.decimals)
-	binary.LittleEndian.PutUint64(bs[asset_total_supply_position:asset_price_position], tx.totalSupply)
-	binary.LittleEndian.PutUint32(bs[asset_price_position:asset_blocks_position], tx.price)
-	binary.LittleEndian.PutUint32(bs[asset_blocks_position:create_asset_from_position], tx.blocks)
-	copy(bs[create_asset_from_position:create_asset_nonce_position], []byte(tx.from))
-	binary.LittleEndian.PutUint32(bs[create_asset_nonce_position:create_asset_byte_price_position], tx.nonce)
-	binary.LittleEndian.PutUint32(bs[create_asset_byte_price_position:create_asset_signer_position], tx.bytePrice)
+	bs := make([]byte, create_length, create_length)
+	bs[0] = type_create
+	copy(bs[create_name_position:create_symbol_position], []byte(tx.name))
+	copy(bs[create_symbol_position:create_decimals_position], []byte(tx.symbol))
+	bs[create_decimals_position] = byte(tx.decimals)
+	binary.LittleEndian.PutUint64(bs[create_total_supply_position:create_price_position], tx.totalSupply)
+	binary.LittleEndian.PutUint32(bs[create_price_position:create_blocks_position], tx.price)
+	binary.LittleEndian.PutUint32(bs[create_blocks_position:create_from_position], tx.blocks)
+	copy(bs[create_from_position:create_nonce_position], []byte(tx.from))
+	binary.LittleEndian.PutUint32(bs[create_nonce_position:create_byte_price_position], tx.nonce)
+	binary.LittleEndian.PutUint32(bs[create_byte_price_position:create_signer_position], tx.bytePrice)
 
 	return sha256.Sum256(bs)
 }
 
 func (ca *createAsset_T) encode() []byte {
-	bs := make([]byte, create_asset_length, create_asset_length)
-	copy(bs[:asset_symbol_position], []byte(ca.name))
-	copy(bs[asset_symbol_position:asset_decimals_position], []byte(ca.symbol))
-	bs[asset_decimals_position] = byte(ca.decimals)
-	binary.LittleEndian.PutUint64(bs[asset_total_supply_position:asset_price_position], ca.totalSupply)
-	binary.LittleEndian.PutUint32(bs[asset_price_position:asset_blocks_position], ca.price)
-	binary.LittleEndian.PutUint32(bs[asset_blocks_position:create_asset_from_position], ca.blocks)
-	copy(bs[create_asset_from_position:create_asset_nonce_position], []byte(ca.from))
-	binary.LittleEndian.PutUint32(bs[create_asset_nonce_position:create_asset_byte_price_position], ca.nonce)
-	binary.LittleEndian.PutUint32(bs[create_asset_byte_price_position:create_asset_signer_position], ca.bytePrice)
-	copy(bs[create_asset_signer_position:], ca.signer.encode())
+	bs := make([]byte, create_length, create_length)
+	bs[0] = type_create
+	copy(bs[create_name_position:create_symbol_position], []byte(ca.name))
+	copy(bs[create_symbol_position:create_decimals_position], []byte(ca.symbol))
+	bs[create_decimals_position] = byte(ca.decimals)
+	binary.LittleEndian.PutUint64(bs[create_total_supply_position:create_price_position], ca.totalSupply)
+	binary.LittleEndian.PutUint32(bs[create_price_position:create_blocks_position], ca.price)
+	binary.LittleEndian.PutUint32(bs[create_blocks_position:create_from_position], ca.blocks)
+	copy(bs[create_from_position:create_nonce_position], []byte(ca.from))
+	binary.LittleEndian.PutUint32(bs[create_nonce_position:create_byte_price_position], ca.nonce)
+	binary.LittleEndian.PutUint32(bs[create_byte_price_position:create_signer_position], ca.bytePrice)
+	copy(bs[create_signer_position:], ca.signer.encode())
 
 	return bs
 }
 
 func (tx *createAsset_T) encodeForPool() []byte {
-	length := create_asset_length + 2
+	length := create_length + 2
 	bs := make([]byte, length, length)
-	binary.LittleEndian.PutUint16(bs[:2], create_asset_length)
+	binary.LittleEndian.PutUint16(bs[:2], create_length)
 	copy(bs[2:], tx.encode())
 
 	return bs
@@ -79,27 +87,27 @@ func (tx *createAsset_T) encodeForPool() []byte {
 func decodeCreateAsset(bs []byte) *createAsset_T {
 	ca := &createAsset_T{}
 
-	ca.name = string(bytes.Trim(bs[:asset_symbol_position], "\x00 \t\n\r"))
-	ca.symbol = string(bytes.Trim(bs[asset_symbol_position:asset_decimals_position], "\x00 \t\n\r"))
-	ca.decimals = uint8(bs[asset_decimals_position])
-	ca.totalSupply = binary.LittleEndian.Uint64(bs[asset_total_supply_position:asset_price_position])
-	ca.price = binary.LittleEndian.Uint32(bs[asset_price_position:asset_blocks_position])
-	ca.blocks = binary.LittleEndian.Uint32(bs[asset_blocks_position:create_asset_from_position])
-	ca.from = string(bs[create_asset_from_position:create_asset_nonce_position])
-	ca.nonce = binary.LittleEndian.Uint32(bs[create_asset_nonce_position:create_asset_byte_price_position])
-	ca.bytePrice = binary.LittleEndian.Uint32(bs[create_asset_byte_price_position:create_asset_signer_position])
-	ca.signer = decodeSigner(bs[create_asset_signer_position:])
+	ca.name = string(bytes.Trim(bs[create_name_position:create_symbol_position], "\x00 \t\n\r"))
+	ca.symbol = string(bytes.Trim(bs[create_symbol_position:create_decimals_position], "\x00 \t\n\r"))
+	ca.decimals = uint8(bs[create_decimals_position])
+	ca.totalSupply = binary.LittleEndian.Uint64(bs[create_total_supply_position:create_price_position])
+	ca.price = binary.LittleEndian.Uint32(bs[create_price_position:create_blocks_position])
+	ca.blocks = binary.LittleEndian.Uint32(bs[create_blocks_position:create_from_position])
+	ca.from = string(bs[create_from_position:create_nonce_position])
+	ca.nonce = binary.LittleEndian.Uint32(bs[create_nonce_position:create_byte_price_position])
+	ca.bytePrice = binary.LittleEndian.Uint32(bs[create_byte_price_position:create_signer_position])
+	ca.signer = decodeSigner(bs[create_signer_position:])
 
 
 	return ca
 }
 
 func (tx *createAsset_T) length() int {
-	return create_asset_length
+	return create_length
 }
 
 func (tx *createAsset_T) fee() uint64 {
-	return create_asset_length * uint64(tx.bytePrice)
+	return create_length * uint64(tx.bytePrice)
 }
 
 func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
@@ -131,6 +139,7 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("Asset's price must > 0")
 	}
 
+	// TODO test 10000 to 10
 	if ca.blocks < 10000 {
 		return errors.New("Asset's blocks must >= 10000")
 	}
@@ -234,6 +243,10 @@ func (ca *createAsset_T) count(state *state_T, coinbase *coinbase_T, index int) 
 	account.nonce = ca.nonce
 
 	return nil
+}
+
+func (ca *createAsset_T) getBytePrice() uint32 {
+	return ca.bytePrice
 }
 
 func (ca *createAsset_T) Map() map[string]interface{} {

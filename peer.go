@@ -120,7 +120,8 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 		poolMutex.Lock()
-		transactionPool = append(transactionPool, tx)
+		// transactionPool = append(transactionPool, tx)
+		transactionPool.order(tx)
 		poolMutex.Unlock()
 	case p2p_add_block_event:
 		if blockchainSync.synchronizing {

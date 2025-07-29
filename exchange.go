@@ -14,23 +14,25 @@ import (
 )
 
 const (
-	exchange_length = 488
+	exchange_length = 489
 )
 
 type exchange_T [2]*transfer_T
 
 func (ex *exchange_T) hash() [32]byte {
-	length := transfer_signer_position * 2
+	length := transfer_signer_position * 2 + 1
 	bs := make([]byte, length, length)
-	copy(bs[:transfer_signer_position], ex[0].encodeWithoutSigner())
-	copy(bs[transfer_signer_position:], ex[1].encodeWithoutSigner())
+	bs[0] = type_exchange
+	copy(bs[1:transfer_signer_position + 1], ex[0].encodeWithoutSigner())
+	copy(bs[transfer_signer_position + 1:], ex[1].encodeWithoutSigner())
 	return sha256.Sum256(bs)
 }
 
 func (ex *exchange_T)encode() []byte {
 	bs := make([]byte, exchange_length, exchange_length)
-	copy(bs[:transfer_length], ex[0].encode())
-	copy(bs[transfer_length:], ex[1].encode())
+	bs[0] = type_exchange
+	copy(bs[1:transfer_length + 1], ex[0].encode())
+	copy(bs[transfer_length + 1:], ex[1].encode())
 
 	return bs
 }
@@ -46,8 +48,8 @@ func (ex *exchange_T)encodeForPool() []byte {
 
 func decodeExchange(bs []byte) *exchange_T {
 	ex := &exchange_T{}
-	ex[0] = decodeTransfer(bs[:transfer_length])
-	ex[1] = decodeTransfer(bs[transfer_length:])
+	ex[0] = decodeTransfer(bs[1:transfer_length +1])
+	ex[1] = decodeTransfer(bs[transfer_length + 1:])
 
 	return ex
 }
@@ -55,6 +57,10 @@ func decodeExchange(bs []byte) *exchange_T {
 func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 	if ex[0].from != ex[1].to || ex[0].to != ex[1].from {
 		return errors.New("The exchange addresses are not match")
+	}
+
+	if hex.EncodeToString(ex[0].assetId[:]) == hex.EncodeToString(ex[1].assetId[:]) {
+		return errors.New("The assetIds is the same one")
 	}
 
 	state, err := getState()
@@ -92,9 +98,13 @@ func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 		assetId := fmt.Sprintf("%064x", transfer.assetId)
 
 		if assetId != dsysbId {
-			_, ok := state.assets[assetId]
+			asset, ok := state.assets[assetId]
 			if !ok {
 				return errors.New("There's not the asset id: " + assetId)
+			}
+
+			if transfer.bytePrice < asset.price {
+				return errors.New(fmt.Sprintf("The byte price should >= asset's create price: %d", asset.price))
 			}
 		}
 
@@ -178,6 +188,10 @@ func (ex *exchange_T) count(state *state_T, coinbase *coinbase_T, index int) err
 	}
 
 	return nil
+}
+
+func (ex *exchange_T) getBytePrice() uint32 {
+	return (ex[0].bytePrice + ex[1].bytePrice) / 2
 }
 
 func (ex *exchange_T) Map() map[string]interface{} {

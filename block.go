@@ -370,6 +370,7 @@ func makeBlockForMine(address string) (*block_T, error) {
 	}
 
 	block.body.transactions[0].count(block.state, nil, 0)
+	block.state.count(coinbase)
 
 	block.head.prevHash = block.head.hash
 

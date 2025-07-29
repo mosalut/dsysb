@@ -14,13 +14,14 @@ import (
 )
 
 const (
-	transfer_length = 244
-	transfer_to_position = 34
-	transfer_amount_position = 68
-	transfer_asset_id_position = 76
-	transfer_nonce_position = 108
-	transfer_byte_price_position = 112
-	transfer_signer_position = 116
+	transfer_length = 245
+	transfer_from_position = 1
+	transfer_to_position = 35
+	transfer_amount_position = 69
+	transfer_asset_id_position = 77
+	transfer_nonce_position = 109
+	transfer_byte_price_position = 113
+	transfer_signer_position = 117
 )
 
 type transfer_T struct {
@@ -41,7 +42,8 @@ func (transfer *transfer_T) hash() [32]byte {
 
 func (transfer *transfer_T) encode() []byte {
 	bs := make([]byte, transfer_length, transfer_length)
-	copy(bs[:transfer_to_position], []byte(transfer.from))
+	bs[0] = type_transfer
+	copy(bs[transfer_from_position:transfer_to_position], []byte(transfer.from))
 	copy(bs[transfer_to_position:transfer_amount_position], []byte(transfer.to))
 	binary.LittleEndian.PutUint64(bs[transfer_amount_position:transfer_asset_id_position],transfer.amount)
 	copy(bs[transfer_asset_id_position:transfer_nonce_position], transfer.assetId[:])
@@ -63,7 +65,7 @@ func (transfer *transfer_T) encodeForPool() []byte {
 
 func decodeTransfer(bs []byte) *transfer_T {
 	transfer := &transfer_T{}
-	transfer.from = string(bs[:transfer_to_position])
+	transfer.from = string(bs[transfer_from_position:transfer_to_position])
 	transfer.to = string(bs[transfer_to_position:transfer_amount_position])
 	transfer.amount = binary.LittleEndian.Uint64(bs[transfer_amount_position:transfer_asset_id_position])
 	transfer.assetId = [32]byte(bs[transfer_asset_id_position:transfer_nonce_position])
@@ -76,7 +78,8 @@ func decodeTransfer(bs []byte) *transfer_T {
 
 func (transfer *transfer_T) encodeWithoutSigner() []byte {
 	bs := make([]byte, transfer_signer_position, transfer_signer_position)
-	copy(bs[:transfer_to_position], []byte(transfer.from))
+	bs[0] = type_transfer
+	copy(bs[transfer_from_position:transfer_to_position], []byte(transfer.from))
 	copy(bs[transfer_to_position:transfer_amount_position], []byte(transfer.to))
 	binary.LittleEndian.PutUint64(bs[transfer_amount_position:transfer_asset_id_position],transfer.amount)
 	copy(bs[transfer_asset_id_position:transfer_nonce_position], transfer.assetId[:])
@@ -125,10 +128,14 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 	assetId := hex.EncodeToString(transfer.assetId[:])
 
 	if assetId != dsysbId {
-		_, ok := state.assets[assetId]
+		asset, ok := state.assets[assetId]
 		if !ok {
 			print(log_error, "There's not the asset id: " + assetId)
 			return errors.New("There's not the asset id: " + assetId)
+		}
+
+		if transfer.bytePrice < asset.price {
+			return errors.New(fmt.Sprintf("The byte price should >= asset's create price: %d", asset.price))
 		}
 	}
 
@@ -211,6 +218,10 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 	accountFrom.nonce = transfer.nonce
 
 	return nil
+}
+
+func (transfer *transfer_T) getBytePrice() uint32 {
+	return transfer.bytePrice
 }
 
 func (transfer *transfer_T) Map() map[string]interface{} {

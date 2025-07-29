@@ -44,6 +44,17 @@ func decodeTxPool(bs []byte) txPool_T {
 	return pool
 }
 
+func (pool txPool_T) order(transaction transaction_I) {
+	for k, tx := range pool {
+		if transaction.getBytePrice() > tx.getBytePrice() {
+			pool = append(pool, nil)
+			copy(pool[k + 1:], pool[k:])
+			pool[k] = transaction
+			return
+		}
+	}
+}
+
 var transactionPool = make(txPool_T, 0, 511)
 var poolMutex = &sync.RWMutex{}
 

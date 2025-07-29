@@ -16,6 +16,7 @@ const (
 	type_exchange
 	type_deploy
 	type_call
+	type_extension
 )
 
 type transaction_I interface {
@@ -25,40 +26,28 @@ type transaction_I interface {
 	verifySign() bool
 	count(*state_T, *coinbase_T, int) error
 	encodeForPool() []byte
+	getBytePrice() uint32
 	Map() map[string]interface{}
 	String() string
 }
 
 func decodeRawTransaction(bs []byte) (transaction_I, error) {
-	length := len(bs)
-
 	var tx transaction_I
-	switch length {
-	case coinbase_length:
+	switch bs[0] {
+	case type_coinbase:
 		tx = decodeCoinbase(bs)
-	case create_asset_length:
-		ok := isCall(bs)
-		if ok {
-			tx = decodeCallTask(bs)
-			break
-		}
-
+	case type_create:
 		tx = decodeCreateAsset(bs)
-	case transfer_length:
+	case type_transfer:
 		tx = decodeTransfer(bs)
-	case exchange_length:
+	case type_exchange:
 		tx = decodeExchange(bs)
+	case type_deploy:
+		tx = decodeDeployTask(bs)
+	case type_call:
+		tx = decodeCallTask(bs)
+	case type_extension:
 	default:
-		ok := isDeploy(bs)
-		if ok {
-			tx = decodeDeployTask(bs)
-			break
-		}
-		ok = isCall(bs)
-		if ok {
-			tx = decodeCallTask(bs)
-			break
-		}
 		return nil, errWrongType
 	}
 
@@ -77,7 +66,8 @@ func sendRawTransaction(bs []byte) error {
 	}
 
 	poolMutex.Lock()
-	transactionPool = append(transactionPool, transaction)
+	// transactionPool = append(transactionPool, transaction)
+	transactionPool.order(transaction)
 	poolMutex.Unlock()
 
 	broadcast(p2p_transport_sendrawtransaction_event, bs)

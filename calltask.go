@@ -14,8 +14,8 @@ import (
 )
 
 type callTask_T struct {
-	taskId [32]byte
 	from string
+	taskId [32]byte
 	params []byte
 	nonce uint32
 	bytePrice uint32
@@ -24,14 +24,15 @@ type callTask_T struct {
 
 func (tx *callTask_T) hash() [32]byte {
 	pLength := len(tx.params)
-	paramsEnd := 66 + pLength // 66 = 32 + 34
+	paramsEnd := 67 + pLength // 67 = 1 + 32 + 34
 	nonceEnd := paramsEnd + 4
 	bytePriceEnd := nonceEnd + 4
 	length := bytePriceEnd + 128
 	bs := make([]byte, length, length)
-	copy(bs[:34], []byte(tx.from))
-	copy(bs[34:66], tx.taskId[:])
-	copy(bs[66:paramsEnd], tx.params)
+	bs[0] = type_call
+	copy(bs[1:35], []byte(tx.from))
+	copy(bs[35:67], tx.taskId[:])
+	copy(bs[67:paramsEnd], tx.params)
 	binary.LittleEndian.PutUint32(bs[paramsEnd:nonceEnd], tx.nonce)
 	binary.LittleEndian.PutUint32(bs[nonceEnd:bytePriceEnd], tx.bytePrice)
 
@@ -40,14 +41,15 @@ func (tx *callTask_T) hash() [32]byte {
 
 func (tx *callTask_T) encode() []byte {
 	pLength := len(tx.params)
-	paramsEnd := 66 + pLength // 66 = 32 + 34
+	paramsEnd := 67 + pLength // 67 = 1 + 32 + 34
 	nonceEnd := paramsEnd + 4
 	bytePriceEnd := nonceEnd + 4
 	length := bytePriceEnd + 128
 	bs := make([]byte, length, length)
-	copy(bs[:34], []byte(tx.from))
-	copy(bs[34:66], tx.taskId[:])
-	copy(bs[66:paramsEnd], tx.params)
+	bs[0] = type_call
+	copy(bs[1:35], []byte(tx.from))
+	copy(bs[35:67], tx.taskId[:])
+	copy(bs[67:paramsEnd], tx.params)
 	binary.LittleEndian.PutUint32(bs[paramsEnd:nonceEnd], tx.nonce)
 	binary.LittleEndian.PutUint32(bs[nonceEnd:bytePriceEnd], tx.bytePrice)
 	copy(bs[bytePriceEnd:], tx.signer.encode())
@@ -56,8 +58,8 @@ func (tx *callTask_T) encode() []byte {
 }
 
 func (tx *callTask_T) encodeForPool() []byte {
-	// 202 = 32 + 34 + 4 + 4 + 128
-	length0 := 202 + len(tx.params)
+	// 203 = 1 + 32 + 34 + 4 + 4 + 128
+	length0 := 203 + len(tx.params)
 	length := length0 + 2
 	bs := make([]byte, length, length)
 	binary.LittleEndian.PutUint16(bs[:2], uint16(length0))
@@ -68,10 +70,10 @@ func (tx *callTask_T) encodeForPool() []byte {
 
 func decodeCallTask(bs []byte) *callTask_T {
 	tx := &callTask_T{}
-	tx.taskId = [32]byte(bs[34:66])
-	tx.from = string(bs[:34])
+	tx.from = string(bs[1:35])
+	tx.taskId = [32]byte(bs[35:67])
 	paramsEnd := len(bs) - 136 // 136 = 4 + 4 + 128
-	tx.params = bs[66:paramsEnd]
+	tx.params = bs[67:paramsEnd]
 	nonceEnd := paramsEnd + 4
 	tx.nonce = binary.LittleEndian.Uint32(bs[paramsEnd:nonceEnd])
 	bytePriceEnd := nonceEnd + 4
@@ -82,7 +84,7 @@ func decodeCallTask(bs []byte) *callTask_T {
 }
 
 func (tx *callTask_T) length() int {
-	return len(tx.params) + 202
+	return len(tx.params) + 203
 }
 
 func (tx *callTask_T) fee() uint64 {
@@ -90,7 +92,7 @@ func (tx *callTask_T) fee() uint64 {
 }
 
 func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
-	if len(ct.params) > 65334 {
+	if len(ct.params) > 65333 {
 		return errors.New("Params's length is too long")
 	}
 
@@ -134,6 +136,16 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 	if err != nil {
 		return err
 	}
+
+	for _, task := range state.tasks {
+		h := task.hash()
+		if hex.EncodeToString(h[:]) == hex.EncodeToString(ct.taskId[:]) {
+			if ct.bytePrice < task.price {
+				return errors.New(fmt.Sprintf("The byte price should >= task's deploy price: %d", task.price))
+			}
+		}
+	}
+
 
 	account, ok := state.accounts[ct.from]
 	if ok {
@@ -192,6 +204,10 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 	return nil
 }
 
+func (tx *callTask_T) getBytePrice() uint32 {
+	return tx.bytePrice
+}
+
 func (tx *callTask_T) Map() map[string]interface{} {
 	txM := make(map[string]interface{})
 	h := tx.hash()
@@ -221,6 +237,7 @@ func (tx *callTask_T) String() string {
 			"\tsignature: %s", tx.hash(), tx.from, tx.taskId, tx.params, tx.nonce, tx.bytePrice, tx.fee(), tx.signer)
 }
 
+/*
 func isCall(bs []byte) bool {
 	length := len(bs)
 	if length < 202 || length > 65536 {
@@ -229,3 +246,4 @@ func isCall(bs []byte) bool {
 
 	return validateAddress(string(bs[:34]))
 }
+*/

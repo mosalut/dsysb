@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	dtLengthWithoutSignature = 54 // 54 = len_ins:2 + len_v:2 + price:4 + blocks:4 + from:34 + nonce:4 + bytePrice:4
-	dtLength = 182 // 182 = len_ins:2 + len_v:2 + price:4 + blocks:4 + from:34 + nonce:4 + bytePrice:4 + signature:128
+	dtLengthWithoutSignature = 55 // 55 = type:1 + len_ins:2 + len_v:2 + price:4 + blocks:4 + from:34 + nonce:4 + bytePrice:4
+	dtLength = 183 // 183 = type:1 + len_ins:2 + len_v:2 + price:4 + blocks:4 + from:34 + nonce:4 + bytePrice:4 + signature:128
 )
 
 type deployTask_T struct {
@@ -32,10 +32,11 @@ type deployTask_T struct {
 func (tx *deployTask_T) hash() [32]byte {
 	length := dtLengthWithoutSignature + len(tx.instructs) + len(tx.vData)
 	bs := make([]byte, length, length)
+	bs[0] = type_deploy
 	instructsLength := len(tx.instructs)
-	binary.LittleEndian.PutUint16(bs[:2], uint16(instructsLength))
-	vDataLengthPosition := 2 + instructsLength
-	copy(bs[2:vDataLengthPosition], tx.instructs)
+	binary.LittleEndian.PutUint16(bs[1:3], uint16(instructsLength))
+	vDataLengthPosition := 3 + instructsLength
+	copy(bs[3:vDataLengthPosition], tx.instructs)
 	vDataLength := len(tx.vData)
 	vDataPosition := vDataLengthPosition + 2
 	binary.LittleEndian.PutUint16(bs[vDataLengthPosition:vDataPosition], uint16(vDataLength))
@@ -57,10 +58,11 @@ func (tx *deployTask_T) hash() [32]byte {
 func (tx *deployTask_T) encode() []byte {
 	length := dtLength + len(tx.instructs) + len(tx.vData)
 	bs := make([]byte, length, length)
+	bs[0] = type_deploy
 	instructsLength := len(tx.instructs)
-	binary.LittleEndian.PutUint16(bs[:2], uint16(instructsLength))
-	vDataLengthPosition := 2 + instructsLength
-	copy(bs[2:vDataLengthPosition], tx.instructs)
+	binary.LittleEndian.PutUint16(bs[1:3], uint16(instructsLength))
+	vDataLengthPosition := 3 + instructsLength
+	copy(bs[3:vDataLengthPosition], tx.instructs)
 	vDataLength := len(tx.vData)
 	vDataPosition := vDataLengthPosition + 2
 	binary.LittleEndian.PutUint16(bs[vDataLengthPosition:vDataPosition], uint16(vDataLength))
@@ -95,9 +97,9 @@ func (tx *deployTask_T) encodeForPool() []byte {
 
 func decodeDeployTask(bs []byte) *deployTask_T {
 	tx := &deployTask_T{}
-	instructsLength := binary.LittleEndian.Uint16(bs[:2])
-	vDataLengthPosition := 2 + instructsLength
-	tx.instructs = bs[2:vDataLengthPosition]
+	instructsLength := binary.LittleEndian.Uint16(bs[1:3])
+	vDataLengthPosition := 3 + instructsLength
+	tx.instructs = bs[3:vDataLengthPosition]
 	vDataPosition := vDataLengthPosition + 2
 	vDataLength := binary.LittleEndian.Uint16(bs[vDataLengthPosition:vDataPosition])
 	pricePosition := vDataPosition + vDataLength
@@ -114,6 +116,10 @@ func decodeDeployTask(bs []byte) *deployTask_T {
 	tx.signer = decodeSigner(bs[signerPosition:])
 
 	return tx
+}
+
+func (tx *deployTask_T) getBytePrice() uint32 {
+	return tx.bytePrice
 }
 
 func (tx *deployTask_T) Map() map[string]interface{} {
@@ -147,36 +153,8 @@ func (tx *deployTask_T) String() string {
 			"%s", tx.hash(), tx.instructs, tx.vData, tx.price, tx.blocks, tx.from, tx.nonce, tx.bytePrice, tx.signer)
 }
 
-func isDeploy(bs []byte) bool {
-	length := len(bs)
-
-	if length < dtLength || length > 65536 {
-		return false
-	}
-
-	instructsLength := binary.LittleEndian.Uint16(bs[:2])
-	vDataLengthPosition := 2 + instructsLength
-	if(uint16(length) < instructsLength) {
-		return false
-	}
-
-	vDataPosition := vDataLengthPosition + 2
-	vDataLength := binary.LittleEndian.Uint16(bs[vDataLengthPosition:vDataPosition])
-	if(uint16(length) < (instructsLength + vDataPosition)) {
-		return false
-	}
-
-	pricePosition := vDataPosition + vDataLength
-
-	if(uint16(length) != pricePosition - 4 + dtLength) {
-		return false
-	}
-
-	return true
-}
-
 func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
-	if len(dt.instructs) + len(dt.vData) > 65358 {
+	if len(dt.instructs) + len(dt.vData) > 65353 {
 		return errors.New("Instructs' and vdata's length is too long")
 	}
 
