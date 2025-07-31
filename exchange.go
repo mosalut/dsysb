@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	exchange_length = 489
+	exchange_length = 491
 )
 
 type exchange_T [2]*transfer_T

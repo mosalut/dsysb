@@ -139,7 +139,6 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("Asset's price must > 0")
 	}
 
-	// TODO test 10000 to 10
 	if ca.blocks < 10000 {
 		return errors.New("Asset's blocks must >= 10000")
 	}

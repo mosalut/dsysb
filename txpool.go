@@ -44,15 +44,17 @@ func decodeTxPool(bs []byte) txPool_T {
 	return pool
 }
 
-func (pool txPool_T) order(transaction transaction_I) {
-	for k, tx := range pool {
+func (pool *txPool_T) order(transaction transaction_I) {
+	for k, tx := range *pool {
 		if transaction.getBytePrice() > tx.getBytePrice() {
-			pool = append(pool, nil)
-			copy(pool[k + 1:], pool[k:])
-			pool[k] = transaction
+			*pool = append(*pool, nil)
+			copy((*pool)[k + 1:], (*pool)[k:])
+			(*pool)[k] = transaction
 			return
 		}
 	}
+
+	*pool = append(*pool, transaction)
 }
 
 var transactionPool = make(txPool_T, 0, 511)
