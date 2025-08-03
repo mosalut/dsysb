@@ -139,9 +139,11 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("Asset's price must > 0")
 	}
 
+	/*
 	if ca.blocks < 10000 {
 		return errors.New("Asset's blocks must >= 10000")
 	}
+	*/
 
 	if ca.bytePrice == 0 {
 		return errors.New("Disallow zero byte price")
@@ -187,7 +189,7 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	fmt.Println("nonce:", ca.nonce, nonce)
 	if ca.nonce - nonce != 1 {
-		return errors.New("The nonces are not match")
+		return errOutOfNonce
 	}
 
 	ok = ca.verifySign()
@@ -280,5 +282,5 @@ func (ca *createAsset_T) String() string {
 		"\tnonce: %d\n" +
 		"\tbyte price: %d\n" +
 		"\tfee: %d\n" +
-		"\tsignature: %s", ca.hash(), ca.name, ca.symbol, ca.decimals, ca.totalSupply, ca.price, ca.blocks, ca.from, ca.nonce, ca.bytePrice, ca.fee(), ca.signer)
+		"%s", ca.hash(), ca.name, ca.symbol, ca.decimals, ca.totalSupply, ca.price, ca.blocks, ca.from, ca.nonce, ca.bytePrice, ca.fee(), ca.signer)
 }

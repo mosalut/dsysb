@@ -47,6 +47,7 @@ func decodeRawTransaction(bs []byte) (transaction_I, error) {
 	case type_call:
 		tx = decodeCallTask(bs)
 	case type_extension:
+		tx = decodeExtension(bs)
 	default:
 		return nil, errWrongType
 	}
@@ -66,7 +67,6 @@ func sendRawTransaction(bs []byte) error {
 	}
 
 	poolMutex.Lock()
-	// transactionPool = append(transactionPool, transaction)
 	transactionPool.order(transaction)
 	poolMutex.Unlock()
 

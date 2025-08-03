@@ -24,10 +24,11 @@ func (e makeBlockError) Error() string {
 
 var errWrongType =  errors.New("Wrong type.")
 
-var errSynchronizing =  errors.New("synchronizing.")
-var errPrevHashNotMatch =  errors.New("The hash and prev hash are not match.")
-var errTransactionRootNotMatch =  errors.New("The transactionRoot and it's data are not match.")
-var errStateRootNotMatch =  errors.New("The stateRoot and it's data are not match.")
+var errSynchronizing = errors.New("synchronizing.")
+var errPrevHashNotMatch = errors.New("The hash and prev hash are not match.")
+var errTransactionRootNotMatch = errors.New("The transactionRoot and it's data are not match.")
+var errStateRootNotMatch = errors.New("The stateRoot and it's data are not match.")
+var errOutOfNonce = errors.New("Out of nonce.")
 
 var errZeroBlock = errors.New("Zero block")
 var errBlockIdNotMatch = errors.New("block hash and index are not match.")

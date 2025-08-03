@@ -154,7 +154,7 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	fmt.Println("nonce:", ct.nonce, nonce)
 	if ct.nonce - nonce != 1 {
-		return errors.New("The nonces are not match")
+		return errOutOfNonce
 	}
 
 	ok = ct.verifySign()
@@ -234,7 +234,7 @@ func (tx *callTask_T) String() string {
 			"\tnonce: %d\n" +
 			"\tbyte price: %d\n" +
 			"\tfee: %d\n" +
-			"\tsignature: %s", tx.hash(), tx.from, tx.taskId, tx.params, tx.nonce, tx.bytePrice, tx.fee(), tx.signer)
+			"%s", tx.hash(), tx.from, tx.taskId, tx.params, tx.nonce, tx.bytePrice, tx.fee(), tx.signer)
 }
 
 /*

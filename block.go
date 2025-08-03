@@ -258,15 +258,18 @@ func (block *block_T)validate() error {
 		return errBits
 	}
 
-	if hex.EncodeToString(newMerkleTree(block.body.transactions).data[:]) != hex.EncodeToString(block.head.transactionRoot[:]) {
-		return errTransactionRootHash
-	}
-
 	stateHashB := block.state.hash()
 	stateHashS := hex.EncodeToString(stateHashB[:])
 	if stateHashS != hex.EncodeToString(block.head.stateRoot[:]) {
 		return errStateRoot
 	}
+
+	index := binary.LittleEndian.Uint32(block.head.hash[32:])
+	coinbase := &coinbase_T {}
+	coinbase.rewards(index)
+
+	block.body.transactions[0].(*coinbase_T).amount = coinbase.amount
+	block.body.transactions[0].(*coinbase_T).nonce = index - 1
 
 	for k, tx := range block.body.transactions[1:] {
 		err = tx.validate(block.head, true)
@@ -280,7 +283,16 @@ func (block *block_T)validate() error {
 		}
 	}
 
-	block.body.transactions[0].validate(block.head, true)
+	if hex.EncodeToString(newMerkleTree(block.body.transactions).data[:]) != hex.EncodeToString(block.head.transactionRoot[:]) {
+		return errTransactionRootHash
+	}
+
+	/*
+	err = block.body.transactions[0].validate(block.head, true)
+	if err != nil {
+		return err
+	}
+	*/
 
 	/*
 	err = block.body.transactions[0].count(prevBlock.state, nil, 0)
@@ -354,6 +366,8 @@ func makeBlockForMine(address string) (*block_T, error) {
 		transactionPool = transactionPool[512:]
 	}
 
+	block.state.count(coinbase)
+
 	for i := 1; i < len(block.body.transactions); {
 		err := block.body.transactions[i].count(block.state, block.body.transactions[0].(*coinbase_T), i)
 		if err != nil {
@@ -370,7 +384,6 @@ func makeBlockForMine(address string) (*block_T, error) {
 	}
 
 	block.body.transactions[0].count(block.state, nil, 0)
-	block.state.count(coinbase)
 
 	block.head.prevHash = block.head.hash
 

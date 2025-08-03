@@ -146,7 +146,7 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	nonce := account.nonce
 	if transfer.nonce - nonce != 1 {
-		return errors.New("The nonces are not match")
+		return errOutOfNonce
 	}
 
 	ok = transfer.verifySign()

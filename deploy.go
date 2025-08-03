@@ -166,18 +166,22 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("Deploy's price must > 0")
 	}
 
+	/*
 	if dt.blocks < 10000 {
 		return errors.New("Deploy's blocks must >= 10000")
 	}
+	*/
 
 	if !validateAddress(dt.from) {
 		return errors.New("`from`: invalid address")
 	}
 
+	/*
 	s := hex.EncodeToString(dt.signer.signature[:])
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")
 	}
+	*/
 
 	// replay attack
 	txIdH := dt.hash()
@@ -214,7 +218,7 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	fmt.Println("nonce:", dt.nonce, nonce)
 	if dt.nonce - nonce != 1 {
-		return errors.New("The nonces are not match")
+		return errOutOfNonce
 	}
 
 	ok = dt.verifySign()
