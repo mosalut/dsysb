@@ -116,7 +116,7 @@ func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 
 		nonce = account.nonce
 		if transfer.nonce - nonce != 1 {
-			return errOutOfNonce
+			return errNonceExpired
 		}
 	}
 

@@ -22,7 +22,7 @@ func (pool txPool_T) encode() []byte {
 	return bs
 }
 
-func decodeTxPool(bs []byte) txPool_T {
+func decodeTxPool(bs []byte) (txPool_T, error) {
 	bsLen := len(bs)
 	var start int
 	var end int
@@ -35,13 +35,16 @@ func decodeTxPool(bs []byte) txPool_T {
 		start = end
 		end = start + length
 
-		transaction, _ := decodeRawTransaction(bs[start:end])
+		transaction, err := decodeRawTransaction(bs[start:end])
+		if err != nil {
+			return nil, err
+		}
 		pool = append(pool, transaction)
 
 		start = end
 	}
 
-	return pool
+	return pool, nil
 }
 
 func (pool *txPool_T) order(transaction transaction_I) {

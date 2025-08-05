@@ -189,7 +189,7 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	fmt.Println("nonce:", ca.nonce, nonce)
 	if ca.nonce - nonce != 1 {
-		return errOutOfNonce
+		return errNonceExpired
 	}
 
 	ok = ca.verifySign()

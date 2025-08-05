@@ -118,7 +118,12 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 
 			print(log_info, "new block")
 
-			block := decodeBlock(data.Body)
+			block, err := decodeBlock(data.Body)
+			if err != nil {
+				noticeErrorBroadcast(err)
+				print(log_error, err)
+				continue
+			}
 
 			// keepit
 			// block validation
@@ -127,7 +132,6 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				err606 := minedError{"606", err.Error()}
 				noticeErrorBroadcast(err606)
 				print(log_error, err606)
-
 				continue
 			}
 

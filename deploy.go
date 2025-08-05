@@ -218,7 +218,7 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	fmt.Println("nonce:", dt.nonce, nonce)
 	if dt.nonce - nonce != 1 {
-		return errOutOfNonce
+		return errNonceExpired
 	}
 
 	ok = dt.verifySign()

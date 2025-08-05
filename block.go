@@ -100,11 +100,15 @@ func (body *blockBody_T) encode () []byte {
 	return bs
 }
 
-func decodeBlockBody(bs []byte) *blockBody_T {
+func decodeBlockBody(bs []byte) (*blockBody_T, error) {
 	body := &blockBody_T{}
-	body.transactions = decodeTxPool(bs)
+	var err error
+	body.transactions, err = decodeTxPool(bs)
+	if err != nil {
+		return nil, err
+	}
 
-	return body
+	return body, nil
 }
 
 func (body *blockBody_T) String() string {
@@ -133,15 +137,19 @@ func (block *block_T) encode() []byte {
 	return bs
 }
 
-func decodeBlock(bs []byte) *block_T {
+func decodeBlock(bs []byte) (*block_T, error) {
+	var err error
 	length := len(bs)
 	block := &block_T{}
 	block.statePosition = binary.LittleEndian.Uint32(bs[length - 4:])
 	block.head = decodeBlockHead(bs[:bh_length])
-	block.body = decodeBlockBody(bs[bh_length:int(block.statePosition)])
+	block.body, err = decodeBlockBody(bs[bh_length:int(block.statePosition)])
+	if err != nil {
+		return nil, err
+	}
 	block.state = decodeState(bs[int(block.statePosition):length - 4])
 
-	return block
+	return block, nil
 }
 
 func (block *block_T) String() string {
@@ -200,7 +208,10 @@ func getBlock(hashBytes []byte) (*block_T, error) {
 
 	block := &block_T {}
 	block.head = decodeBlockHead(blockBytes[:bh_length])
-	block.body = decodeBlockBody(blockBytes[bh_length:int(statePosition)])
+	block.body, err = decodeBlockBody(blockBytes[bh_length:int(statePosition)])
+	if err != nil {
+		return nil, err
+	}
 	block.state = decodeState(blockBytes[int(statePosition):length - 4])
 
 	return block, nil
@@ -258,48 +269,40 @@ func (block *block_T)validate() error {
 		return errBits
 	}
 
-	stateHashB := block.state.hash()
-	stateHashS := hex.EncodeToString(stateHashB[:])
-	if stateHashS != hex.EncodeToString(block.head.stateRoot[:]) {
-		return errStateRoot
-	}
-
 	index := binary.LittleEndian.Uint32(block.head.hash[32:])
 	coinbase := &coinbase_T {}
 	coinbase.rewards(index)
 
-	block.body.transactions[0].(*coinbase_T).amount = coinbase.amount
-	block.body.transactions[0].(*coinbase_T).nonce = index - 1
-
-	for k, tx := range block.body.transactions[1:] {
+	for _, tx := range block.body.transactions[1:] {
 		err = tx.validate(block.head, true)
 		if err != nil{
 			return err
 		}
+	}
 
-		err = tx.count(prevBlock.state, block.body.transactions[0].(*coinbase_T), k)
+	block.body.transactions[0].(*coinbase_T).amount = coinbase.amount
+	block.body.transactions[0].(*coinbase_T).nonce = index - 1
+	*block.state = *prevBlock.state
+	block.state.count(block.body.transactions[0].(*coinbase_T))
+
+	for k, tx := range block.body.transactions[1:] {
+		err = tx.count(block.state, block.body.transactions[0].(*coinbase_T), k)
 		if err != nil{
 			return err
 		}
 	}
+
+	block.body.transactions[0].count(block.state, nil, 0)
 
 	if hex.EncodeToString(newMerkleTree(block.body.transactions).data[:]) != hex.EncodeToString(block.head.transactionRoot[:]) {
 		return errTransactionRootHash
 	}
 
-	/*
-	err = block.body.transactions[0].validate(block.head, true)
-	if err != nil {
-		return err
+	stateHashB := block.state.hash()
+	stateHashS := hex.EncodeToString(stateHashB[:])
+	if stateHashS != hex.EncodeToString(block.head.stateRoot[:]) {
+		return errStateRoot
 	}
-	*/
-
-	/*
-	err = block.body.transactions[0].count(prevBlock.state, nil, 0)
-	if err != nil{
-		return err
-	}
-	*/
 
 	return nil
 }
@@ -353,7 +356,7 @@ func makeBlockForMine(address string) (*block_T, error) {
 	index := binary.LittleEndian.Uint32(block.head.hash[32:])
 	coinbase := &coinbase_T {}
 	coinbase.to = address
-	coinbase.rewards(index)
+	coinbase.rewards(index + 1)
 	coinbase.nonce = index
 
 	block.body.transactions = txPool_T{ coinbase }
@@ -363,7 +366,7 @@ func makeBlockForMine(address string) (*block_T, error) {
 		transactionPool = transactionPool[:0]
 	} else {
 		block.body.transactions = append(block.body.transactions, transactionPool[:511]...)
-		transactionPool = transactionPool[512:]
+		transactionPool = transactionPool[511:]
 	}
 
 	block.state.count(coinbase)
@@ -386,7 +389,6 @@ func makeBlockForMine(address string) (*block_T, error) {
 	block.body.transactions[0].count(block.state, nil, 0)
 
 	block.head.prevHash = block.head.hash
-
 	block.head.stateRoot = block.state.hash()
 	block.head.transactionRoot = newMerkleTree(block.body.transactions).data
 	binary.LittleEndian.PutUint64(block.head.timestamp[:], uint64(time.Now().Unix()))

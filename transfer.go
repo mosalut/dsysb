@@ -130,7 +130,6 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 	if assetId != dsysbId {
 		asset, ok := state.assets[assetId]
 		if !ok {
-			print(log_error, "There's not the asset id: " + assetId)
 			return errors.New("There's not the asset id: " + assetId)
 		}
 
@@ -146,7 +145,7 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	nonce := account.nonce
 	if transfer.nonce - nonce != 1 {
-		return errOutOfNonce
+		return errNonceExpired
 	}
 
 	ok = transfer.verifySign()
@@ -184,7 +183,7 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 		accountTo.assets = make(map[string]uint64)
 	}
 
-	id := fmt.Sprintf("%064x", transfer.assetId)
+	id := hex.EncodeToString(transfer.assetId[:])
 
 	if id == dsysbId {
 		if accountFrom.balance < transfer.amount + transfer.fee() {

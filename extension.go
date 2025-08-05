@@ -155,14 +155,37 @@ func (et *extension_T) validate(head *blockHead_T, fromP2p bool) error {
 		return err
 	}
 
-	account, ok := state.accounts[et.from]
-	if ok {
-		nonce = account.nonce
+	id := hex.EncodeToString(et.nId[:])
+
+	switch et.aot {
+	case 0:
+		_, ok := state.assets[id]
+		if !ok {
+			return errors.New("There is not this asset")
+		}
+	case 1:
+		var b bool
+		for _, t := range state.tasks {
+			tId := t.hash()
+			if hex.EncodeToString(tId[:]) == id {
+				b = true
+				break
+			}
+		}
+		if !b {
+			return errors.New("There is not this task")
+		}
 	}
 
+	account, ok := state.accounts[et.from]
+	if !ok {
+		return errors.New("There's not the account id")
+	}
+
+	nonce = account.nonce
 	fmt.Println("nonce:", et.nonce, nonce)
 	if et.nonce - nonce != 1 {
-		return errOutOfNonce
+		return errNonceExpired
 	}
 
 	ok = et.verifySign()
@@ -181,8 +204,12 @@ func (et *extension_T) count(state *state_T, coinbase *coinbase_T, index int) er
 
 	id := hex.EncodeToString(et.nId[:])
 
-	if et.aot == 0 {
-		asset := state.assets[id]
+	switch et.aot {
+	case 0:
+		asset, ok := state.assets[id]
+		if !ok {
+			return errors.New("There is not this asset")
+		}
 		holdAmount := uint64(asset.price) * uint64(et.blocks)
 		totalSpend := holdAmount + et.fee()
 		if account.balance < totalSpend {
@@ -190,9 +217,7 @@ func (et *extension_T) count(state *state_T, coinbase *coinbase_T, index int) er
 		}
 		account.balance -= totalSpend
 		asset.remain += et.blocks
-	}
-
-	if et.aot == 1 {
+	case 1:
 		var task *task_T
 		for k, t := range state.tasks {
 			tId := t.hash()

@@ -92,7 +92,6 @@ func (coinbase *coinbase_T) validate(head *blockHead_T, fromP2p bool) error {
 		amount = 0
 	}
 
-	fmt.Println("coinbase amount:", amount)
 	if amount != coinbase.amount {
 		return errors.New("The rewards and block height are not match")
 	}

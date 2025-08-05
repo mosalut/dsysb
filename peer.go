@@ -131,7 +131,11 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 
 		blockchainSync.doing(rAddr)
 
-		block := decodeBlock(body[29:])
+		block, err := decodeBlock(body[29:])
+		if err != nil {
+			print(log_warning, "p2p_add_block_event: decoding block failed", err)
+			return
+		}
 
 		blockHash32 := fmt.Sprintf("%064x", block.head.hashing())
 		if blockHash32 != fmt.Sprintf("%064x", block.head.hash[:32]) {
@@ -308,9 +312,13 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		bodyLength := len(body)
 		print(log_info, "body length:", bodyLength)
 
-		block := decodeBlock(body[29:])
+		block, err := decodeBlock(body[29:])
+		if err != nil {
+			print(log_warning, "p2p_add_block_event: decoding block failed", err)
+			return
+		}
 
-		err := block.Append()
+		err = block.Append()
 		if err != nil {
 			blockchainSync.over()
 			print(log_error, err)

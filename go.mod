@@ -5,7 +5,7 @@ go 1.22.2
 require (
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/gorilla/websocket v1.5.3
-	github.com/mosalut/q2p v1.1.0
+	github.com/mosalut/q2p v1.1.1
 	github.com/syndtr/goleveldb v1.0.0
 	golang.org/x/crypto v0.33.0
 	gopkg.in/ini.v1 v1.67.0

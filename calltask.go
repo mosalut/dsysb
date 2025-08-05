@@ -154,7 +154,7 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	fmt.Println("nonce:", ct.nonce, nonce)
 	if ct.nonce - nonce != 1 {
-		return errOutOfNonce
+		return errNonceExpired
 	}
 
 	ok = ct.verifySign()

@@ -114,6 +114,7 @@ func accountHandler(w http.ResponseWriter, req *http.Request) {
 	account, ok := state.accounts[address]
 	if !ok {
 		writeResult(w, responseResult_T{false, "No this account", nil})
+		return
 	}
 
 	writeResult(w, responseResult_T{true, "ok", account.encode()})
