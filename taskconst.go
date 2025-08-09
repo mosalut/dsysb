@@ -57,15 +57,15 @@ const (
 	ins_dec32u
 	ins_dec64u
 
-	ins_bytes
-	ins_uint8
-	ins_uint16
-	ins_uint32
-	ins_uint64
-	ins_int8
-	ins_int16
-	ins_int32
-	ins_int64
+	ins_write_uint8
+	ins_write_uint16
+	ins_write_uint32
+	ins_write_uint64
+
+	ins_read_uint8
+	ins_read_uint16
+	ins_read_uint32
+	ins_read_uint64
 
 	ins_eq
 	ins_gt
@@ -75,6 +75,8 @@ const (
 	ins_eq_bytes
 
 	ins_height
-	ins_block
-	ins_transaction
+	ins_transfer_dsb_from
+	ins_transfer_dsb_to
+	ins_transfer_from
+	ins_transfer_to
 )

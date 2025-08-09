@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"net/http"
+	"errors"
 	"fmt"
 )
 
@@ -89,6 +90,20 @@ func (account *account_T)hash() [32]byte {
 	return sha256.Sum256(account.encode())
 }
 
+func getAccount(address string) (*account_T, error) {
+	state, err := getState()
+	if err != nil {
+		return nil, err
+	}
+
+	account, ok := state.accounts[address]
+	if !ok {
+		return nil, errors.New("No this account")
+	}
+
+	return account, err
+}
+
 func accountHandler(w http.ResponseWriter, req *http.Request) {
 	cors(w)
 
@@ -104,16 +119,9 @@ func accountHandler(w http.ResponseWriter, req *http.Request) {
 	values := req.URL.Query()
 	address := values.Get("address")
 
-	state, err := getState()
+	account, err := getAccount(address)
 	if err != nil {
-		print(log_error, err)
-		writeResult(w, responseResult_T{false, "dsysb inner error", nil})
-		return
-	}
-
-	account, ok := state.accounts[address]
-	if !ok {
-		writeResult(w, responseResult_T{false, "No this account", nil})
+		writeResult(w, responseResult_T{false, err.Error(), nil})
 		return
 	}
 

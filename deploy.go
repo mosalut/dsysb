@@ -252,6 +252,7 @@ func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) e
 		dt.price,
 		dt.blocks,
 		dt.blocks,
+		len(dt.vData),
 	}
 
 	taskIdB := task.hash()

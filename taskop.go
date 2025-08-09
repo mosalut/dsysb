@@ -5,332 +5,738 @@ package main
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"fmt"
 )
 
+func (task *task_T) opCheck(length int, args ...int) error {
+	for k, p := range args {
+		limit := p + length
+		if task.length < limit {
+			return errors.New(fmt.Sprintf("vData error at p%d: %d", k, p))
+		}
+	}
+
+	return nil
+}
+
 /* ------ mov ------ */
-func (task *task_T) movsb(p0, p1, length int) {
+func (task *task_T) movsb(p0, p1, length int) error {
+	err := task.opCheck(length, p0, p1)
+	if err != nil {
+		return err
+	}
 	copy(task.vData[p1:p1 + length], task.vData[p0:p0 + length])
+
+	return nil
 }
 
-func (task *task_T) mov8(p0, p1 int) {
+func (task *task_T) mov8(p0, p1 int) error {
+	err := task.opCheck(1, p0, p1)
+	if err != nil {
+		return err
+	}
 	task.vData[p1] = task.vData[p0]
+
+	return nil
 }
 
-func (task *task_T) mov16(p0, p1 int) {
+func (task *task_T) mov16(p0, p1 int) error {
+	err := task.opCheck(2, p0, p1)
+	if err != nil {
+		return err
+	}
 	copy(task.vData[p1:p1 + 2], task.vData[p0:p0 + 2])
+
+	return nil
 }
 
-func (task *task_T) mov32(p0, p1 int) {
+func (task *task_T) mov32(p0, p1 int) error {
+	err := task.opCheck(4, p0, p1)
+	if err != nil {
+		return err
+	}
 	copy(task.vData[p1:p1 + 4], task.vData[p0:p0 + 4])
+
+	return nil
 }
 
-func (task *task_T) mov64(p0, p1 int) {
+func (task *task_T) mov64(p0, p1 int) error {
+	err := task.opCheck(8, p0, p1)
+	if err != nil {
+		return err
+	}
 	copy(task.vData[p1:p1 + 8], task.vData[p0:p0 + 8])
+
+	return nil
 }
 
 /* ------ add ------ */
-func (task *task_T) add8(p0, p1, p2 int) {
+func (task *task_T) add8(p0, p1, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	task.vData[p2] = byte(int8(task.vData[p0]) + int8(task.vData[p1]))
+
+	return nil
 }
 
-func (task *task_T) add16(p0, p1, p2 int) {
+func (task *task_T) add16(p0, p1, p2 int) error {
+	err := task.opCheck(2, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 	y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
 	binary.LittleEndian.PutUint16(task.vData[p2:p2 + 2], uint16(x + y))
+
+	return nil
 }
 
-func (task *task_T) add32(p0, p1, p2 int) {
+func (task *task_T) add32(p0, p1, p2 int) error {
+	err := task.opCheck(4, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 	y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
 	binary.LittleEndian.PutUint32(task.vData[p2:p2 + 4], uint32(x + y))
+
+	return nil
 }
 
-func (task *task_T) add64(p0, p1, p2 int) {
+func (task *task_T) add64(p0, p1, p2 int) error {
+	err := task.opCheck(8, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 	y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 	binary.LittleEndian.PutUint64(task.vData[p2:p2 + 8], uint64(x + y))
+
+	return nil
 }
 
-func (task *task_T) add8u(p0, p1, p2 int) {
+func (task *task_T) add8u(p0, p1, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	task.vData[p2] = byte(uint8(task.vData[p0]) + uint8(task.vData[p1]))
+
+	return nil
 }
 
-func (task *task_T) add16u(p0, p1, p2 int) {
+func (task *task_T) add16u(p0, p1, p2 int) error {
+	err := task.opCheck(2, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 	y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
 	binary.LittleEndian.PutUint16(task.vData[p2:p2 + 2], x + y)
+
+	return nil
 }
 
-func (task *task_T) add32u(p0, p1, p2 int) {
+func (task *task_T) add32u(p0, p1, p2 int) error {
+	err := task.opCheck(4, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 	y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
 	binary.LittleEndian.PutUint32(task.vData[p2:p2 + 4], x + y)
+
+	return nil
 }
 
-func (task *task_T) add64u(p0, p1, p2 int) {
+func (task *task_T) add64u(p0, p1, p2 int) error {
+	err := task.opCheck(8, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 	y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 	binary.LittleEndian.PutUint64(task.vData[p2:p2 + 8], x + y)
+
+	return nil
 }
 
 /* ------ sub ------ */
-func (task *task_T) sub8(p0, p1, p2 int) {
+func (task *task_T) sub8(p0, p1, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	task.vData[p2] = byte(int8(task.vData[p0]) - int8(task.vData[p1]))
+
+	return nil
 }
 
-func (task *task_T) sub16(p0, p1, p2 int) {
+func (task *task_T) sub16(p0, p1, p2 int) error {
+	err := task.opCheck(2, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 	y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
 	binary.LittleEndian.PutUint16(task.vData[p2:p2 + 2], uint16(x - y))
+
+	return nil
 }
 
-func (task *task_T) sub32(p0, p1, p2 int) {
+func (task *task_T) sub32(p0, p1, p2 int) error {
+	err := task.opCheck(4, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 	y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
 	binary.LittleEndian.PutUint32(task.vData[p2:p2 + 4], uint32(x - y))
+
+	return nil
 }
 
-func (task *task_T) sub64(p0, p1, p2 int) {
+func (task *task_T) sub64(p0, p1, p2 int) error {
+	err := task.opCheck(8, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 	y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 	binary.LittleEndian.PutUint64(task.vData[p2:p2 + 8], uint64(x - y))
+
+	return nil
 }
 
-func (task *task_T) sub8u(p0, p1, p2 int) {
+func (task *task_T) sub8u(p0, p1, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	task.vData[p2] = byte(uint8(task.vData[p0]) - uint8(task.vData[p1]))
+
+	return nil
 }
 
-func (task *task_T) sub16u(p0, p1, p2 int) {
+func (task *task_T) sub16u(p0, p1, p2 int) error {
+	err := task.opCheck(2, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 	y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
 	binary.LittleEndian.PutUint16(task.vData[p2:p2 + 2], x - y)
+
+	return nil
 }
 
-func (task *task_T) sub32u(p0, p1, p2 int) {
+func (task *task_T) sub32u(p0, p1, p2 int) error {
+	err := task.opCheck(4, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 	y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
 	binary.LittleEndian.PutUint32(task.vData[p2:p2 + 4], x - y)
+
+	return nil
 }
 
-func (task *task_T) sub64u(p0, p1, p2 int) {
+func (task *task_T) sub64u(p0, p1, p2 int) error {
+	err := task.opCheck(8, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 	y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 	binary.LittleEndian.PutUint64(task.vData[p2:p2 + 8], x - y)
+
+	return nil
 }
 
 /* ------ mul ------ */
-func (task *task_T) mul8(p0, p1, p2 int) {
+func (task *task_T) mul8(p0, p1, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	task.vData[p2] = byte(int8(task.vData[p0]) * int8(task.vData[p1]))
+
+	return nil
 }
 
-func (task *task_T) mul16(p0, p1, p2 int) {
+func (task *task_T) mul16(p0, p1, p2 int) error {
+	err := task.opCheck(2, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 	y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
 	binary.LittleEndian.PutUint16(task.vData[p2:p2 + 2], uint16(x * y))
+
+	return nil
 }
 
-func (task *task_T) mul32(p0, p1, p2 int) {
+func (task *task_T) mul32(p0, p1, p2 int) error {
+	err := task.opCheck(4, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 	y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
 	binary.LittleEndian.PutUint32(task.vData[p2:p2 + 4], uint32(x * y))
+
+	return nil
 }
 
-func (task *task_T) mul64(p0, p1, p2 int) {
+func (task *task_T) mul64(p0, p1, p2 int) error {
+	err := task.opCheck(8, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 	y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 	binary.LittleEndian.PutUint64(task.vData[p2:p2 + 8], uint64(x * y))
+
+	return nil
 }
 
-func (task *task_T) mul8u(p0, p1, p2 int) {
+func (task *task_T) mul8u(p0, p1, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	task.vData[p2] = byte(uint8(task.vData[p0]) * uint8(task.vData[p1]))
+
+	return nil
 }
 
-func (task *task_T) mul16u(p0, p1, p2 int) {
+func (task *task_T) mul16u(p0, p1, p2 int) error {
+	err := task.opCheck(2, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 	y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
 	binary.LittleEndian.PutUint16(task.vData[p2:p2 + 2], x * y)
+
+	return nil
 }
 
-func (task *task_T) mul32u(p0, p1, p2 int) {
+func (task *task_T) mul32u(p0, p1, p2 int) error {
+	err := task.opCheck(4, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 	y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
 	binary.LittleEndian.PutUint32(task.vData[p2:p2 + 4], x * y)
+
+	return nil
 }
 
-func (task *task_T) mul64u(p0, p1, p2 int) {
+func (task *task_T) mul64u(p0, p1, p2 int) error {
+	err := task.opCheck(8, p0, p1, p2)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 	y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 	binary.LittleEndian.PutUint64(task.vData[p2:p2 + 8], x * y)
+
+	return nil
 }
 
 /* ------ quo ------ */
-func (task *task_T) quo8(p0, p1, p2, p3 int) {
-	task.vData[p2] = byte(int8(task.vData[p0]) / int8(task.vData[p1]))
-	task.vData[p3] = byte(int8(task.vData[p0]) % int8(task.vData[p1]))
+func (task *task_T) quo8(p0, p1, p2, p3 int) error {
+	err := task.opCheck(1, p0, p1, p2, p3)
+	if err != nil {
+		return err
+	}
+	d := int8(task.vData[p1])
+	if d == 0 {
+		return errors.New("quo8 p1, divisor is zero")
+	}
+	task.vData[p2] = byte(int8(task.vData[p0]) / d)
+	task.vData[p3] = byte(int8(task.vData[p0]) % d)
+
+	return nil
 }
 
-func (task *task_T) quo16(p0, p1, p2, p3 int) {
+func (task *task_T) quo16(p0, p1, p2, p3 int) error {
+	err := task.opCheck(2, p0, p1, p2, p3)
+	if err != nil {
+		return err
+	}
 	x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 	y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
+	if y == 0 {
+		return errors.New("quo16 p1, divisor is zero")
+	}
 	binary.LittleEndian.PutUint16(task.vData[p2:p2 + 2], uint16(x / y))
 	binary.LittleEndian.PutUint16(task.vData[p3:p3 + 2], uint16(x % y))
+
+	return nil
 }
 
-func (task *task_T) quo32(p0, p1, p2, p3 int) {
+func (task *task_T) quo32(p0, p1, p2, p3 int) error {
+	err := task.opCheck(4, p0, p1, p2, p3)
+	if err != nil {
+		return err
+	}
 	x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 	y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
+	if y == 0 {
+		return errors.New("quo32 p1, divisor is zero")
+	}
 	binary.LittleEndian.PutUint32(task.vData[p2:p2 + 4], uint32(x / y))
 	binary.LittleEndian.PutUint32(task.vData[p3:p3 + 4], uint32(x % y))
+
+	return nil
 }
 
-func (task *task_T) quo64(p0, p1, p2, p3 int) {
+func (task *task_T) quo64(p0, p1, p2, p3 int) error {
+	err := task.opCheck(8, p0, p1, p2, p3)
+	if err != nil {
+		return err
+	}
 	x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 	y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
+	if y == 0 {
+		return errors.New("quo64 p1, divisor is zero")
+	}
 	binary.LittleEndian.PutUint64(task.vData[p2:p2 + 8], uint64(x / y))
 	binary.LittleEndian.PutUint64(task.vData[p3:p3 + 8], uint64(x % y))
+
+	return nil
 }
 
-func (task *task_T) quo8u(p0, p1, p2, p3 int) {
+func (task *task_T) quo8u(p0, p1, p2, p3 int) error {
+	err := task.opCheck(1, p0, p1, p2, p3)
+	if err != nil {
+		return err
+	}
+	d := int(task.vData[p1])
+	if d == 0 {
+		return errors.New("quo8 p1, divisor is zero")
+	}
 	task.vData[p2] = byte(uint8(task.vData[p0]) / uint8(task.vData[p1]))
 	task.vData[p3] = byte(uint8(task.vData[p0]) % uint8(task.vData[p1]))
+
+	return nil
 }
 
-func (task *task_T) quo16u(p0, p1, p2, p3 int) {
+func (task *task_T) quo16u(p0, p1, p2, p3 int) error {
+	err := task.opCheck(2, p0, p1, p2, p3)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 	y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
+	if y == 0 {
+		return errors.New("quo16 p1, divisor is zero")
+	}
 	binary.LittleEndian.PutUint16(task.vData[p2:p2 + 2], x / y)
 	binary.LittleEndian.PutUint16(task.vData[p3:p3 + 2], x % y)
+
+	return nil
 }
 
-func (task *task_T) quo32u(p0, p1, p2, p3 int) {
+func (task *task_T) quo32u(p0, p1, p2, p3 int) error {
+	err := task.opCheck(4, p0, p1, p2, p3)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 	y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
+	if y == 0 {
+		return errors.New("quo32 p1, divisor is zero")
+	}
 	binary.LittleEndian.PutUint32(task.vData[p2:p2 + 4], x / y)
 	binary.LittleEndian.PutUint32(task.vData[p3:p3 + 4], x % y)
+
+	return nil
 }
 
-func (task *task_T) quo64u(p0, p1, p2, p3 int) {
+func (task *task_T) quo64u(p0, p1, p2, p3 int) error {
+	err := task.opCheck(8, p0, p1, p2, p3)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 	y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+	if y == 0 {
+		return errors.New("quo64 p1, divisor is zero")
+	}
 	binary.LittleEndian.PutUint64(task.vData[p2:p2 + 8], x / y)
 	binary.LittleEndian.PutUint64(task.vData[p3:p3 + 8], x % y)
+
+	return nil
 }
 
 /* ------ inc ------ */
-func (task *task_T) inc8(p0 int) {
+func (task *task_T) inc8(p0 int) error {
+	err := task.opCheck(1, p0)
+	if err != nil {
+		return err
+	}
 	task.vData[p0] = byte(int8(task.vData[p0]) + 1)
+
+	return nil
 }
 
-func (task *task_T) inc16(p0 int) {
+func (task *task_T) inc16(p0 int) error {
+	err := task.opCheck(2, p0)
+	if err != nil {
+		return err
+	}
 	x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], uint16(x + 1))
+
+	return nil
 }
 
-func (task *task_T) inc32(p0 int) {
+func (task *task_T) inc32(p0 int) error {
+	err := task.opCheck(4, p0)
+	if err != nil {
+		return err
+	}
 	x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 4], uint32(x + 1))
+
+	return nil
 }
 
-func (task *task_T) inc64(p0 int) {
+func (task *task_T) inc64(p0 int) error {
+	err := task.opCheck(8, p0)
+	if err != nil {
+		return err
+	}
 	x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 8], uint64(x + 1))
+
+	return nil
 }
 
-func (task *task_T) inc8u(p0 int) {
+func (task *task_T) inc8u(p0 int) error {
+	err := task.opCheck(0, p0)
+	if err != nil {
+		return err
+	}
 	task.vData[p0] = byte(uint8(task.vData[p0]) + 1)
+
+	return nil
 }
 
-func (task *task_T) inc16u(p0 int) {
+func (task *task_T) inc16u(p0 int) error {
+	err := task.opCheck(2, p0)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], x + 1)
+
+	return nil
 }
 
-func (task *task_T) inc32u(p0 int) {
+func (task *task_T) inc32u(p0 int) error {
+	err := task.opCheck(4, p0)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 4], x + 1)
+
+	return nil
 }
 
-func (task *task_T) inc64u(p0 int) {
+func (task *task_T) inc64u(p0 int) error {
+	err := task.opCheck(8, p0)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 8], x + 1)
+
+	return nil
 }
 
 /* ------ dec ------ */
-func (task *task_T) dec8(p0 int) {
+func (task *task_T) dec8(p0 int) error {
+	err := task.opCheck(1, p0)
+	if err != nil {
+		return err
+	}
 	task.vData[p0] = byte(int8(task.vData[p0]) + 1)
+
+	return nil
 }
 
-func (task *task_T) dec16(p0 int) {
+func (task *task_T) dec16(p0 int) error {
+	err := task.opCheck(2, p0)
+	if err != nil {
+		return err
+	}
 	x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], uint16(x + 1))
+
+	return nil
 }
 
-func (task *task_T) dec32(p0 int) {
+func (task *task_T) dec32(p0 int) error {
+	err := task.opCheck(4, p0)
+	if err != nil {
+		return err
+	}
 	x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 4], uint32(x + 1))
+
+	return nil
 }
 
-func (task *task_T) dec64(p0 int) {
+func (task *task_T) dec64(p0 int) error {
+	err := task.opCheck(8, p0)
+	if err != nil {
+		return err
+	}
 	x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 8], uint64(x + 1))
+
+	return nil
 }
 
-func (task *task_T) dec8u(p0 int) {
+func (task *task_T) dec8u(p0 int) error {
+	err := task.opCheck(1, p0)
+	if err != nil {
+		return err
+	}
 	task.vData[p0] = byte(uint8(task.vData[p0]) - 1)
+
+	return nil
 }
 
-func (task *task_T) dec16u(p0 int) {
+func (task *task_T) dec16u(p0 int) error {
+	err := task.opCheck(2, p0)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], x - 1)
+
+	return nil
 }
 
-func (task *task_T) dec32u(p0 int) {
+func (task *task_T) dec32u(p0 int) error {
+	err := task.opCheck(4, p0)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 4], x - 1)
+
+	return nil
 }
 
-func (task *task_T) dec64u(p0 int) {
+func (task *task_T) dec64u(p0 int) error {
+	err := task.opCheck(8, p0)
+	if err != nil {
+		return err
+	}
 	x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 8], x - 1)
+
+	return nil
 }
 
-func (task *task_T) vBytes(reg *reg_T, p0 int) {
-	copy(task.vData[p0:], reg.vBytes)
-}
-
-func (task *task_T) vUint8(reg *reg_T, p0 int) {
+func (task *task_T) writeUint8(reg *reg_T, p0 int) error {
+	err := task.opCheck(1, p0)
+	if err != nil {
+		return err
+	}
 	task.vData[p0] = reg.vUint8
+
+	return nil
 }
 
-func (task *task_T) vUint16(reg *reg_T, p0 int) {
+func (task *task_T) writeUint16(reg *reg_T, p0 int) error {
+	err := task.opCheck(2, p0)
+	if err != nil {
+		return err
+	}
 	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], reg.vUint16)
+
+	return nil
 }
 
-func (task *task_T) vUint32(reg *reg_T, p0 int) {
-	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 2], reg.vUint32)
+func (task *task_T) writeUint32(reg *reg_T, p0 int) error {
+	err := task.opCheck(4, p0)
+	if err != nil {
+		return err
+	}
+	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 4], reg.vUint32)
+
+	return nil
 }
 
-func (task *task_T) vUint64(reg *reg_T, p0 int) {
-	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 2], reg.vUint64)
+func (task *task_T) writeUint64(reg *reg_T, p0 int) error {
+	err := task.opCheck(8, p0)
+	if err != nil {
+		return err
+	}
+	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 8], reg.vUint64)
+
+	return nil
 }
 
-func (task *task_T) vInt8(reg *reg_T, p0 int) {
-	task.vData[p0] = reg.vInt8
+func (task *task_T) readUint8(reg *reg_T, p0 int) error {
+	err := task.opCheck(1, p0)
+	if err != nil {
+		return err
+	}
+	reg.vUint8 = task.vData[p0]
+
+	return nil
 }
 
-func (task *task_T) vInt16(reg *reg_T, p0 int) {
-	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], uint16(reg.vInt16))
+func (task *task_T) readUint16(reg *reg_T, p0 int) error {
+	err := task.opCheck(2, p0)
+	if err != nil {
+		return err
+	}
+	reg.vUint16 = binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
+
+	return nil
 }
 
-func (task *task_T) vInt32(reg *reg_T, p0 int) {
-	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 2], uint32(reg.vInt32))
+func (task *task_T) readUint32(reg *reg_T, p0 int) error {
+	err := task.opCheck(4, p0)
+	if err != nil {
+		return err
+	}
+	reg.vUint32 = binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
+
+	return nil
 }
 
-func (task *task_T) vInt64(reg *reg_T, p0 int) {
-	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 2], uint64(reg.vInt64))
+func (task *task_T) readUint64(reg *reg_T, p0 int) error {
+	err := task.opCheck(8, p0)
+	if err != nil {
+		return err
+	}
+	reg.vUint64 = binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
+
+	return nil
 }
 
-func (task *task_T) eq(reg *reg_T, p0 int, p1 int, p2 int) {
+func (task *task_T) eq(reg *reg_T, p0 int, p1 int, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
+
 	flag := uint8(task.vData[p2])
 
 	switch flag {
@@ -339,23 +745,42 @@ func (task *task_T) eq(reg *reg_T, p0 int, p1 int, p2 int) {
 		y := task.vData[p1]
 		reg.vBool = x == y
 	case 1:
+		err := task.opCheck(2, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
 		reg.vBool = x == y
 	case 2:
+		err := task.opCheck(4, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
 		reg.vBool = x == y
 	case 3:
+		err := task.opCheck(8, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 		reg.vBool = x == y
 	default:
-		return
+		return errors.New("Wrong type of task op eq")
 	}
+
+	return nil
 }
 
-func (task *task_T) gt(reg *reg_T, p0 int, p1 int, p2 int) {
+func (task *task_T) gt(reg *reg_T, p0 int, p1 int, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
+
 	flag := uint8(task.vData[p2])
 
 	switch flag {
@@ -364,14 +789,26 @@ func (task *task_T) gt(reg *reg_T, p0 int, p1 int, p2 int) {
 		y := task.vData[p1]
 		reg.vBool = x > y
 	case 1:
+		err := task.opCheck(2, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
 		reg.vBool = x > y
 	case 2:
+		err := task.opCheck(4, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
 		reg.vBool = x > y
 	case 3:
+		err := task.opCheck(8, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 		reg.vBool = x > y
@@ -380,23 +817,42 @@ func (task *task_T) gt(reg *reg_T, p0 int, p1 int, p2 int) {
 		y := int8(task.vData[p1])
 		reg.vBool = x > y
 	case 5:
+		err := task.opCheck(2, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 		y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
 		reg.vBool = x > y
 	case 6:
+		err := task.opCheck(4, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 		y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
 		reg.vBool = x > y
 	case 7:
+		err := task.opCheck(8, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 		reg.vBool = x > y
 	default:
-		return
+		return errors.New("Wrong type of task op gt")
 	}
+
+	return nil
 }
 
-func (task *task_T) lt(reg *reg_T, p0 int, p1 int, p2 int) {
+func (task *task_T) lt(reg *reg_T, p0 int, p1 int, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
+
 	flag := uint8(task.vData[p2])
 
 	switch flag {
@@ -405,14 +861,26 @@ func (task *task_T) lt(reg *reg_T, p0 int, p1 int, p2 int) {
 		y := task.vData[p1]
 		reg.vBool = x < y
 	case 1:
+		err := task.opCheck(2, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
 		reg.vBool = x < y
 	case 2:
+		err := task.opCheck(4, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
 		reg.vBool = x < y
 	case 3:
+		err := task.opCheck(8, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 		reg.vBool = x < y
@@ -421,23 +889,42 @@ func (task *task_T) lt(reg *reg_T, p0 int, p1 int, p2 int) {
 		y := int8(task.vData[p1])
 		reg.vBool = x < y
 	case 5:
+		err := task.opCheck(2, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 		y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
 		reg.vBool = x < y
 	case 6:
+		err := task.opCheck(4, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 		y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
 		reg.vBool = x < y
 	case 7:
+		err := task.opCheck(8, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 		reg.vBool = x < y
 	default:
-		return
+		return errors.New("Wrong type of task op lt")
 	}
+
+	return nil
 }
 
-func (task *task_T) gteq(reg *reg_T, p0 int, p1 int, p2 int) {
+func (task *task_T) gteq(reg *reg_T, p0 int, p1 int, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
+
 	flag := uint8(task.vData[p2])
 
 	switch flag {
@@ -446,14 +933,26 @@ func (task *task_T) gteq(reg *reg_T, p0 int, p1 int, p2 int) {
 		y := task.vData[p1]
 		reg.vBool = x >= y
 	case 1:
+		err := task.opCheck(2, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
 		reg.vBool = x >= y
 	case 2:
+		err := task.opCheck(4, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
 		reg.vBool = x >= y
 	case 3:
+		err := task.opCheck(8, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 		reg.vBool = x >= y
@@ -462,23 +961,42 @@ func (task *task_T) gteq(reg *reg_T, p0 int, p1 int, p2 int) {
 		y := int8(task.vData[p1])
 		reg.vBool = x >= y
 	case 5:
+		err := task.opCheck(2, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 		y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
 		reg.vBool = x >= y
 	case 6:
+		err := task.opCheck(4, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 		y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
 		reg.vBool = x >= y
 	case 7:
+		err := task.opCheck(8, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 		reg.vBool = x >= y
 	default:
-		return
+		return errors.New("Wrong type of task op gteq")
 	}
+
+	return nil
 }
 
-func (task *task_T) lteq(reg *reg_T, p0 int, p1 int, p2 int) {
+func (task *task_T) lteq(reg *reg_T, p0 int, p1 int, p2 int) error {
+	err := task.opCheck(1, p0, p1, p2)
+	if err != nil {
+		return err
+	}
+
 	flag := uint8(task.vData[p2])
 
 	switch flag {
@@ -487,14 +1005,26 @@ func (task *task_T) lteq(reg *reg_T, p0 int, p1 int, p2 int) {
 		y := task.vData[p1]
 		reg.vBool = x <= y
 	case 1:
+		err := task.opCheck(2, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint16(task.vData[p0:p0 + 2])
 		y := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
 		reg.vBool = x <= y
 	case 2:
+		err := task.opCheck(4, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint32(task.vData[p0:p0 + 4])
 		y := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
 		reg.vBool = x <= y
 	case 3:
+		err := task.opCheck(8, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 		reg.vBool = x <= y
@@ -503,26 +1033,49 @@ func (task *task_T) lteq(reg *reg_T, p0 int, p1 int, p2 int) {
 		y := int8(task.vData[p1])
 		reg.vBool = x <= y
 	case 5:
+		err := task.opCheck(2, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
 		y := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
 		reg.vBool = x <= y
 	case 6:
+		err := task.opCheck(4, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
 		y := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
 		reg.vBool = x <= y
 	case 7:
+		err := task.opCheck(8, p0, p1)
+		if err != nil {
+			return err
+		}
 		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 		reg.vBool = x <= y
 	default:
-		return
+		return errors.New("task op call:Wrong type of task op lteq")
 	}
+
+	return nil
 }
 
-func (task *task_T) eqBytes(reg *reg_T, p0 int, p1 int, p2 int) {
+func (task *task_T) eqBytes(reg *reg_T, p0 int, p1 int, p2 int) error {
+	err := task.opCheck(2, p2)
+	if err != nil {
+		return err
+	}
 	length := int(binary.LittleEndian.Uint16(task.vData[p2:p2 + 2]))
-
+	err = task.opCheck(length, p0, p1)
+	if err != nil {
+		return err
+	}
 	reg.vBool = hex.EncodeToString(task.vData[p0:p0 + length]) == hex.EncodeToString(task.vData[p1:p1 + length])
+
+	return nil
 }
 
 func (task *task_T) getIndex(reg *reg_T) error {
@@ -531,6 +1084,172 @@ func (task *task_T) getIndex(reg *reg_T) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (task *task_T) transferDSBFrom(state *state_T, p0, p1 int) error {
+	err := task.opCheck(34, p0)
+	if err != nil {
+		return err
+	}
+
+	err = task.opCheck(8, p1)
+	if err != nil {
+		return err
+	}
+
+	address := string(task.vData[p0:p0 + 34])
+	amount := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+
+	accountFrom, ok := state.accounts[address]
+	if !ok {
+		return errors.New("task op call:the from address is not found")
+	}
+
+	accountTo, ok := state.accounts[task.address]
+	if !ok {
+		return errors.New("task op call:the to address is not found")
+	}
+
+	if accountFrom.balance < amount {
+		return errors.New("task op call:not enough more DSBs")
+	}
+
+	accountFrom.balance -= amount
+	accountTo.balance += amount
+
+	return nil
+}
+
+func (task *task_T) transferDSBTo(state *state_T, p0, p1 int) error {
+	err := task.opCheck(34, p0)
+	if err != nil {
+		return err
+	}
+
+	err = task.opCheck(8, p1)
+	if err != nil {
+		return err
+	}
+
+	address := string(task.vData[p0:p0 + 34])
+	amount := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+
+	accountFrom, ok := state.accounts[task.address]
+	if !ok {
+		return errors.New("task op call:the from address is not found")
+	}
+
+	accountTo, ok := state.accounts[address]
+	if !ok {
+		return errors.New("task op call:the to address is not found")
+	}
+
+	if accountFrom.balance < amount {
+		return errors.New("task op call:not enough more DSBs")
+	}
+
+	accountFrom.balance -= amount
+	accountTo.balance += amount
+
+	return nil
+}
+
+func (task *task_T) transferFrom(state *state_T, p0, p1, p2 int) error {
+	err := task.opCheck(32, p0)
+	if err != nil {
+		return err
+	}
+
+	err = task.opCheck(34, p1)
+	if err != nil {
+		return err
+	}
+
+	err = task.opCheck(8, p2)
+	if err != nil {
+		return err
+	}
+
+	id := hex.EncodeToString(task.vData[p0:p0 + 32])
+	address := string(task.vData[p1:p1 + 34])
+	amount := binary.LittleEndian.Uint64(task.vData[p2:p2 + 8])
+
+	accountFrom, ok := state.accounts[address]
+	if !ok {
+		return errors.New("task op call:the from account is not found")
+	}
+
+	accountTo, ok := state.accounts[task.address]
+	if !ok {
+		return errors.New("task op call:the to account is not found")
+	}
+
+	_, ok = accountFrom.assets[id]
+	if !ok {
+		return errors.New("task op call:the from account's asset is not found")
+	}
+
+	if accountFrom.assets[id] < amount {
+		return errors.New("task op call:not enough more tokens")
+	}
+
+	accountFrom.assets[id] -= amount
+	_, ok = accountTo.assets[id]
+	if !ok {
+		accountTo.assets[id] = 0
+	}
+	accountTo.assets[id] += amount
+
+	return nil
+}
+
+func (task *task_T) transferTo(state *state_T, p0, p1, p2 int) error {
+	err := task.opCheck(32, p0)
+	if err != nil {
+		return err
+	}
+
+	err = task.opCheck(34, p1)
+	if err != nil {
+		return err
+	}
+
+	err = task.opCheck(8, p2)
+	if err != nil {
+		return err
+	}
+
+	id := hex.EncodeToString(task.vData[p0:p0 + 32])
+	address := string(task.vData[p1:p1 + 34])
+	amount := binary.LittleEndian.Uint64(task.vData[p2:p2 + 8])
+
+	accountFrom, ok := state.accounts[task.address]
+	if !ok {
+		return errors.New("task op call:the from address is not found")
+	}
+
+	accountTo, ok := state.accounts[address]
+	if !ok {
+		return errors.New("task op call:the to address is not found")
+	}
+
+	_, ok = accountFrom.assets[id]
+	if !ok {
+		return errors.New("task op call:the from account's asset is not found")
+	}
+
+	if accountFrom.assets[id] < amount {
+		return errors.New("task op call:not enough more tokens")
+	}
+
+	accountFrom.assets[id] -= amount
+	_, ok = accountTo.assets[id]
+	if !ok {
+		accountTo.assets[id] = 0
+	}
+	accountTo.assets[id] += amount
 
 	return nil
 }

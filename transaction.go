@@ -33,6 +33,7 @@ type transaction_I interface {
 
 func decodeRawTransaction(bs []byte) (transaction_I, error) {
 	var tx transaction_I
+
 	switch bs[0] {
 	case type_coinbase:
 		tx = decodeCoinbase(bs)

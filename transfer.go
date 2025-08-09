@@ -184,15 +184,16 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 	}
 
 	id := hex.EncodeToString(transfer.assetId[:])
+	fee := transfer.fee()
 
 	if id == dsysbId {
-		if accountFrom.balance < transfer.amount + transfer.fee() {
+		if accountFrom.balance < transfer.amount + fee {
 			return errors.New("not enough DSBs: amount + fee")
 		}
 
 		accountFrom.balance, accountTo.balance = accountFrom.balance - transfer.amount, accountTo.balance + transfer.amount
 	} else {
-		if accountFrom.balance < transfer.fee() {
+		if accountFrom.balance < fee {
 			return errors.New("not enough DSBs: fee")
 		}
 		balance, ok := accountFrom.assets[id]
@@ -211,9 +212,8 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 		accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
 	}
 
-	accountFrom.balance -= transfer.fee()
-//	state.accounts[*address].balance += transfer.fee()
-	coinbase.amount += transfer.fee()
+	accountFrom.balance -= fee
+	coinbase.amount += fee
 	accountFrom.nonce = transfer.nonce
 
 	return nil
