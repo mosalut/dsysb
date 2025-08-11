@@ -80,10 +80,28 @@ func deleteReceivedTransportId(postId string) {
 	receivedTransportIdsMutex.Unlock()
 }
 
-func postDebug() {
-	hi := []byte("hihihihi")
+func postDebugHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
 
-	broadcast(p2p_debug, hi)
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	message := values.Get("message")
+
+	postDebug(message)
+
+	writeResult(w, responseResult_T{true, "ok", nil})
+}
+
+func postDebug(message string) {
+	broadcast(p2p_debug, []byte(message))
 }
 
 func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body []byte) {
@@ -100,6 +118,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 	receivedTransportIdsMutex.Lock()
 	_, ok := receivedTransportIds[postId]
 	if ok {
+		fmt.Println("return:", postId)
 		return
 	}
 	receivedTransportIdsMutex.Unlock()
@@ -108,6 +127,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 
 	switch event {
 	case p2p_transport_sendrawtransaction_event:
+		fmt.Println("event:", event, p2p_transport_sendrawtransaction_event)
 		tx, err := decodeRawTransaction(body[29:])
 		if err != nil {
 			print(log_error, err)
@@ -342,7 +362,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		postId := fmt.Sprintf("%056x", body[:28])
 		print(log_debug, "postId:", postId)
 		print(log_debug, "hi:", string(body[29:]))
-		broadcast(p2p_debug, body[29:])
+	//	broadcast(p2p_debug, body[29:])
 	}
 }
 

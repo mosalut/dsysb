@@ -25,6 +25,8 @@ func runHttpServer(port string) {
 	http.HandleFunc("/txpool", txPoolHandler)
 	http.HandleFunc("/txinpool", txInPoolHandler)
 
+	http.HandleFunc("/debug", postDebugHandler)
+
 	server := http.Server {
 		Addr: "0.0.0.0:" + port,
 		ReadTimeout: 5 * time.Second,
