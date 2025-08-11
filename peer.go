@@ -361,7 +361,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 	case p2p_debug:
 		postId := fmt.Sprintf("%056x", body[:28])
 		print(log_debug, "postId:", postId)
-		print(log_debug, "hi:", string(body[29:]))
+		fmt.Println("Get message:", body[29:])
 	//	broadcast(p2p_debug, body[29:])
 	}
 }
