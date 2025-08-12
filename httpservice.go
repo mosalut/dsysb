@@ -25,7 +25,8 @@ func runHttpServer(port string) {
 	http.HandleFunc("/txpool", txPoolHandler)
 	http.HandleFunc("/txinpool", txInPoolHandler)
 
-	http.HandleFunc("/debug", postDebugHandler)
+	http.HandleFunc("/message", sendMessageHandler)
+	http.HandleFunc("/broadcast", broadcastHandler)
 
 	server := http.Server {
 		Addr: "0.0.0.0:" + port,

@@ -2,12 +2,31 @@ package main
 
 import (
 	"net"
+	"net/http"
 	"fmt"
-
-	"github.com/mosalut/q2p"
 )
 
-func sendMessage(peer *q2p.Peer_T, addr, message string) error {
+func sendMessageHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	addr := values.Get("address")
+	message := values.Get("message")
+
+	sendMessage(addr, message)
+}
+
+
+func sendMessage(addr, message string) error {
 	rAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return err
@@ -22,4 +41,24 @@ func sendMessage(peer *q2p.Peer_T, addr, message string) error {
 	fmt.Println(hash, "sent")
 
 	return nil
+}
+
+func broadcastHandler(w http.ResponseWriter, req *http.Request) {
+	cors(w)
+
+	switch req.Method {
+	case http.MethodOptions:
+		return
+	case http.MethodGet:
+	default:
+		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
+		return
+	}
+
+	values := req.URL.Query()
+	message := values.Get("message")
+
+	broadcast(p2p_debug, []byte(message))
+
+	writeResult(w, responseResult_T{true, "ok", nil})
 }

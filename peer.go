@@ -80,48 +80,25 @@ func deleteReceivedTransportId(postId string) {
 	receivedTransportIdsMutex.Unlock()
 }
 
-func postDebugHandler(w http.ResponseWriter, req *http.Request) {
-	cors(w)
-
-	switch req.Method {
-	case http.MethodOptions:
-		return
-	case http.MethodGet:
-	default:
-		http.Error(w, API_NOT_FOUND, http.StatusNotFound)
-		return
-	}
-
-	values := req.URL.Query()
-	message := values.Get("message")
-
-	postDebug(message)
-
-	writeResult(w, responseResult_T{true, "ok", nil})
-}
-
-func postDebug(message string) {
-	broadcast(p2p_debug, []byte(message))
-}
-
 func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body []byte) {
 	fmt.Println("hash key:", key)
 
-	if len(body) < 1 {
+	if len(body) < 28 {
 		return
 	}
 
 	postId := fmt.Sprintf("%056x", body[:28])
-//	fmt.Println(postId)
-//	fmt.Println(receivedTransportIds)
-	event := uint8(body[28])
+	print(log_debug, "postId:", postId)
+
 	receivedTransportIdsMutex.Lock()
 	_, ok := receivedTransportIds[postId]
+	receivedTransportIdsMutex.Unlock()
 	if ok {
 		fmt.Println("return:", postId)
 		return
 	}
-	receivedTransportIdsMutex.Unlock()
+
+	event := uint8(body[28])
 
 	addReceivedTransportId(postId, rAddr.String())
 
@@ -140,9 +117,10 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 		poolMutex.Lock()
-		// transactionPool = append(transactionPool, tx)
 		transactionPool.order(tx)
 		poolMutex.Unlock()
+
+		broadcastForward(body)
 	case p2p_add_block_event:
 		if blockchainSync.synchronizing {
 			print(log_warning, "p2p_add_block_event: adding or synchronizing")
@@ -205,7 +183,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 					return
 				}
 				blockchainSync.over()
-				broadcast(p2p_add_block_event, body[29:])
+				broadcastForward(body)
 			}
 		} else {
 			blockchainSync.targetIndex = blockIndex
@@ -359,10 +337,8 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 	case p2p_debug:
-		postId := fmt.Sprintf("%056x", body[:28])
-		print(log_debug, "postId:", postId)
-		fmt.Println("Get message:", body[29:])
-	//	broadcast(p2p_debug, body[29:])
+		fmt.Println("Get message:", string(body[29:]))
+		broadcastForward(body)
 	}
 }
 
@@ -391,11 +367,31 @@ func peerHandler(w http.ResponseWriter, req *http.Request) {
 	writeResult(w, responseResult_T{true, "ok", jsonData})
 }
 
+func broadcastForward(bs []byte) {
+	postId := fmt.Sprintf("%056x", bs[:28])
+	print(log_debug, "postId:", postId)
+
+	for k, _ := range peer.RemoteSeeds {
+		rAddr, err := net.ResolveUDPAddr("udp", k)
+		if err != nil {
+			print(log_error, err)
+			continue
+		}
+
+		_, err = peer.Transport(rAddr, bs)
+		if err != nil {
+			print(log_error, err)
+			continue
+		}
+	}
+}
+
 func broadcast(event uint8, data []byte) {
 	hash := makePostHash(data)
 	bs := append(hash[:], byte(event))
 	bs = append(bs, data...)
 	postId := fmt.Sprintf("%056x", hash[:])
+	print(log_debug, "postId:", postId)
 
 	fmt.Println("remote seeds:", peer.RemoteSeeds)
 	addReceivedTransportId(postId, peer.Conn.LocalAddr().String())
