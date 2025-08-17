@@ -75,8 +75,14 @@ const (
 	ins_eq_bytes
 
 	ins_height
-	ins_transfer_dsb_from
-	ins_transfer_dsb_to
-	ins_transfer_from
-	ins_transfer_to
+	ins_transfer_dsb_from_caller
+	ins_transfer_dsb_to_caller
+	ins_transfer_from_caller
+	ins_transfer_to_caller
+
+	ins_pushsb
+	ins_push8
+	ins_push16
+	ins_push32
+	ins_push64
 )

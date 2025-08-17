@@ -176,12 +176,25 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("`from`: invalid address")
 	}
 
-	/*
 	s := hex.EncodeToString(dt.signer.signature[:])
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")
 	}
-	*/
+
+	task := &task_T {
+		dt.from,
+		dt.instructs,
+		dt.vData,
+		dt.nonce,
+		dt.price,
+		dt.blocks,
+		dt.blocks,
+	}
+
+	err := task.validate()
+	if err != nil {
+		return err
+	}
 
 	// replay attack
 	txIdH := dt.hash()
@@ -252,7 +265,6 @@ func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) e
 		dt.price,
 		dt.blocks,
 		dt.blocks,
-		len(dt.vData),
 	}
 
 	taskIdB := task.hash()

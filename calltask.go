@@ -184,11 +184,6 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 		return errors.New("The task of CT is not found")
 	}
 
-	err := task.excute(state, ct.from, ct.fee())
-	if err != nil {
-		return err
-	}
-
 	account, ok := state.accounts[ct.from]
 	if !ok {
 		return errors.New("CT address is empty address")
@@ -200,6 +195,12 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 	account.balance -= ct.fee()
 	coinbase.amount += ct.fee()
 	account.nonce = ct.nonce
+
+	err := task.excute(state, ct.from, ct.fee(), ct.params)
+	if err != nil {
+		print(log_warning, "taskId:", hex.EncodeToString(ct.taskId[:]), "caller:", ct.from, "excute error:", err)
+	//	return err
+	}
 
 	return nil
 }
