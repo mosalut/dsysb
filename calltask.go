@@ -199,7 +199,7 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 	err := task.excute(state, ct.from, ct.fee(), ct.params)
 	if err != nil {
 		print(log_warning, "taskId:", hex.EncodeToString(ct.taskId[:]), "caller:", ct.from, "excute error:", err)
-	//	return err
+		return errors.New("taskId:" + hex.EncodeToString(ct.taskId[:]) + "caller:" + ct.from + " excute error:" + err.Error())
 	}
 
 	return nil
