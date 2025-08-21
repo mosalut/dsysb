@@ -198,7 +198,7 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 		}
 		balance, ok := accountFrom.assets[id]
 		if !ok {
-			return errors.New("There is not this asset")
+			return errors.New("There are not the asset tokens: " + id + " in this account")
 		}
 
 		if balance < transfer.amount {

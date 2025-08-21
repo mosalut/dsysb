@@ -372,9 +372,11 @@ func makeBlockForMine(address string) (*block_T, error) {
 	block.state.count(coinbase)
 
 	for i := 1; i < len(block.body.transactions); {
+		stateBack := block.state.encode()
 		err := block.body.transactions[i].count(block.state, block.body.transactions[0].(*coinbase_T), i)
 		if err != nil {
 			block.body.transactions = append(block.body.transactions[:i], block.body.transactions[i + 1:]...)
+			block.state = decodeState(stateBack)
 
 			err605 := makeBlockError{"605:", err.Error()}
 			print(log_warning, err605)
