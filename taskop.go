@@ -6,21 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"fmt"
 )
-
-func (task *task_T) opCheck(length int, args ...int) error {
-	vdLength := len(task.vData)
-	for k, p := range args {
-		limit := p + length
-		if vdLength < limit {
-			fmt.Println(vdLength, limit)
-			return errors.New(fmt.Sprintf("vData error at p%d: %d", k, p))
-		}
-	}
-
-	return nil
-}
 
 /* ------ mov ------ */
 func (task *task_T) movsb(p0, p1, length int) error {
@@ -732,7 +718,7 @@ func (task *task_T) getIndex(reg *reg_T) error {
 }
 
 /* ------ transfer ------ */
-func (task *task_T) transferDSBFromCaller(state *state_T, address string, p0 int) error {
+func (task *task_T) transferDSBFromCaller(state *state_T, reg *reg_T, taskId, address string, p0 int) error {
 	amount := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 
 	accountFrom, ok := state.accounts[address]
@@ -752,10 +738,24 @@ func (task *task_T) transferDSBFromCaller(state *state_T, address string, p0 int
 	accountFrom.balance -= amount
 	accountTo.balance += amount
 
+	event := &transferDSBFromCallerEvent_T {
+		taskId,
+		address,
+		task.address,
+		amount,
+	}
+
+	emit := &taskEmit_T {
+		e_transfer_dsb_from_caller,
+		event,
+	}
+
+	reg.emits = append(reg.emits, emit)
+
 	return nil
 }
 
-func (task *task_T) transferDSBToCaller(state *state_T, address string, p0 int) error {
+func (task *task_T) transferDSBToCaller(state *state_T, reg *reg_T, taskId, address string, p0 int) error {
 	amount := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 
 	accountFrom, ok := state.accounts[task.address]
@@ -775,11 +775,25 @@ func (task *task_T) transferDSBToCaller(state *state_T, address string, p0 int) 
 	accountFrom.balance -= amount
 	accountTo.balance += amount
 
+	event := &transferDSBToCallerEvent_T {
+		taskId,
+		task.address,
+		address,
+		amount,
+	}
+
+	emit := &taskEmit_T {
+		e_transfer_dsb_to_caller,
+		event,
+	}
+
+	reg.emits = append(reg.emits, emit)
+
 	return nil
 }
 
-func (task *task_T) transferFromCaller(state *state_T, address string, p0, p1 int) error {
-	id := hex.EncodeToString(task.vData[p0:p0 + 32])
+func (task *task_T) transferFromCaller(state *state_T, reg *reg_T, taskId, address string, p0, p1 int) error {
+	assetId := hex.EncodeToString(task.vData[p0:p0 + 32])
 	amount := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 
 	accountFrom, ok := state.accounts[address]
@@ -792,27 +806,42 @@ func (task *task_T) transferFromCaller(state *state_T, address string, p0, p1 in
 		return errors.New("task op call:the to account is not found")
 	}
 
-	_, ok = accountFrom.assets[id]
+	_, ok = accountFrom.assets[assetId]
 	if !ok {
 		return errors.New("task op call:the from account's asset is not found")
 	}
 
-	if accountFrom.assets[id] < amount {
+	if accountFrom.assets[assetId] < amount {
 		return errors.New("task op call:not enough more tokens")
 	}
 
-	accountFrom.assets[id] -= amount
-	_, ok = accountTo.assets[id]
+	accountFrom.assets[assetId] -= amount
+	_, ok = accountTo.assets[assetId]
 	if !ok {
-		accountTo.assets[id] = 0
+		accountTo.assets[assetId] = 0
 	}
-	accountTo.assets[id] += amount
+	accountTo.assets[assetId] += amount
+
+	event := &transferFromCallerEvent_T {
+		taskId,
+		assetId,
+		address,
+		task.address,
+		amount,
+	}
+
+	emit := &taskEmit_T {
+		e_transfer_from_caller,
+		event,
+	}
+
+	reg.emits = append(reg.emits, emit)
 
 	return nil
 }
 
-func (task *task_T) transferToCaller(state *state_T, address string, p0, p1 int) error {
-	id := hex.EncodeToString(task.vData[p0:p0 + 32])
+func (task *task_T) transferToCaller(state *state_T, reg *reg_T, taskId, address string, p0, p1 int) error {
+	assetId := hex.EncodeToString(task.vData[p0:p0 + 32])
 	amount := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 
 	accountFrom, ok := state.accounts[task.address]
@@ -825,21 +854,36 @@ func (task *task_T) transferToCaller(state *state_T, address string, p0, p1 int)
 		return errors.New("task op call:the to address is not found")
 	}
 
-	_, ok = accountFrom.assets[id]
+	_, ok = accountFrom.assets[assetId]
 	if !ok {
 		return errors.New("task op call:the from account's asset is not found")
 	}
 
-	if accountFrom.assets[id] < amount {
+	if accountFrom.assets[assetId] < amount {
 		return errors.New("task op call:not enough more tokens")
 	}
 
-	accountFrom.assets[id] -= amount
-	_, ok = accountTo.assets[id]
+	accountFrom.assets[assetId] -= amount
+	_, ok = accountTo.assets[assetId]
 	if !ok {
-		accountTo.assets[id] = 0
+		accountTo.assets[assetId] = 0
 	}
-	accountTo.assets[id] += amount
+	accountTo.assets[assetId] += amount
+
+	event := &transferToCallerEvent_T {
+		taskId,
+		assetId,
+		task.address,
+		address,
+		amount,
+	}
+
+	emit := &taskEmit_T {
+		e_transfer_to_caller,
+		event,
+	}
+
+	reg.emits = append(reg.emits, emit)
 
 	return nil
 }

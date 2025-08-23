@@ -10,6 +10,60 @@ import (
 	"errors"
 )
 
+const (
+	e_transfer_dsb_from_caller = iota
+	e_transfer_dsb_to_caller
+	e_transfer_from_caller
+	e_transfer_to_caller
+)
+
+type taskEmit_T struct {
+	Type uint8 `json:"type"`
+	event taskEvent_I `json:"event"`
+}
+
+type taskEvent_I interface {
+	taskEventF()
+}
+
+type transferDSBFromCallerEvent_T struct {
+	TaskId string `json:"taskId"`
+	From string `json:"from"`
+	To string `json:"to"`
+	Amount uint64 `json:"amount"`
+}
+
+func (event *transferDSBFromCallerEvent_T) taskEventF() {}
+
+type transferDSBToCallerEvent_T struct {
+	TaskId string `json:"taskId"`
+	From string `json:"from"`
+	To string `json:"to"`
+	Amount uint64 `json:"amount"`
+}
+
+func (event *transferDSBToCallerEvent_T) taskEventF() {}
+
+type transferFromCallerEvent_T struct {
+	TaskId string `json:"taskId"`
+	AssetId string `json:"assetId"`
+	From string `json:"from"`
+	To string `json:"to"`
+	Amount uint64 `json:"amount"`
+}
+
+func (event *transferFromCallerEvent_T) taskEventF() {}
+
+type transferToCallerEvent_T struct {
+	TaskId string `json:"taskId"`
+	AssetId string `json:"assetId"`
+	From string `json:"from"`
+	To string `json:"to"`
+	Amount uint64 `json:"amount"`
+}
+
+func (event *transferToCallerEvent_T) taskEventF() {}
+
 type reg_T struct {
 	vUint8 uint8
 	vUint16 uint16
@@ -19,8 +73,8 @@ type reg_T struct {
 	vInt16 uint16
 	vInt32 uint64
 	vInt64 uint64
-
 	vBool bool
+	emits []*taskEmit_T
 }
 
 type task_T struct {
@@ -92,6 +146,8 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 	vdLength := len(task.vData)
 	d := make([]byte, vdLength, vdLength)
 	copy(d, task.vData)
+	h := task.hash()
+	taskId := hex.EncodeToString(h[:])
 
 	reg := &reg_T{}
 
@@ -570,23 +626,23 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 		case ins_transfer_dsb_from_caller:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // amount
 			ip += 2
-			err = task.transferDSBFromCaller(state, address, p0)
+			err = task.transferDSBFromCaller(state, reg, taskId, address, p0)
 		case ins_transfer_dsb_to_caller:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // amount
 			ip += 2
-			err = task.transferDSBToCaller(state, address, p0)
+			err = task.transferDSBToCaller(state, reg, taskId, address, p0)
 		case ins_transfer_from_caller:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // asset id
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // amount
 			ip += 2
-			err = task.transferFromCaller(state, address, p0, p1)
+			err = task.transferFromCaller(state, reg, taskId, address, p0, p1)
 		case ins_transfer_to_caller:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // asset id
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // amount
 			ip += 2
-			err = task.transferToCaller(state, address, p0, p1)
+			err = task.transferToCaller(state, reg, taskId, address, p0, p1)
 		case ins_pushsb:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // params position
 			ip += 2
@@ -628,6 +684,10 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 			copy(task.vData, d)
 			return err
 		}
+	}
+
+	for _, emit := range reg.emits {
+		noticeTaskBroadcast(emit)
 	}
 
 	return nil

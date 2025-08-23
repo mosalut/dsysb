@@ -143,6 +143,11 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 			if ct.bytePrice < task.price {
 				return errors.New(fmt.Sprintf("The byte price should >= task's deploy price: %d", task.price))
 			}
+			err := task.validateCall(ct.params)
+			if err != nil {
+				return err
+			}
+			break
 		}
 	}
 

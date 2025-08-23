@@ -913,6 +913,19 @@ func (task *task_T)opCheckInnerB(aip, p0, p1, p2, p3 int) error {
 	}
 }
 
+func (task *task_T) opCheck(length int, args ...int) error {
+	vdLength := len(task.vData)
+	for k, p := range args {
+		limit := p + length
+		if vdLength < limit {
+			fmt.Println(vdLength, limit)
+			return errors.New(fmt.Sprintf("vData error at p%d: %d", k, p))
+		}
+	}
+
+	return nil
+}
+
 func (task *task_T) paramsCheck(pLength, length int, args ...int) error {
 	for k, p := range args {
 		limit := p + length
@@ -929,6 +942,7 @@ func (task *task_T) validateCall(params []byte) error {
 	// variable ip int for instructs
 
 	instructsLength := len(task.instructs)
+	pLength := len(params)
 
 	for ip := 0; ip < instructsLength; {
 		ipx := ip
@@ -944,23 +958,23 @@ func (task *task_T) validateCall(params []byte) error {
 			ip += 4
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // length
 			ip += 2
-			err = task.paramsCheck(p2, p0)
+			err = task.paramsCheck(pLength, p2, p0)
 		case ins_push8:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // params position
 			ip += 4
-			err = task.paramsCheck(1, p0)
+			err = task.paramsCheck(pLength, 1, p0)
 		case ins_push16:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // params position
 			ip += 4
-			err = task.paramsCheck(2, p0)
+			err = task.paramsCheck(pLength, 2, p0)
 		case ins_push32:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // params position
 			ip += 4
-			err = task.paramsCheck(4, p0)
+			err = task.paramsCheck(pLength, 4, p0)
 		case ins_push64:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // params position
 			ip += 4
-			err = task.paramsCheck(8, p0)
+			err = task.paramsCheck(pLength, 8, p0)
 		}
 
 		if err != nil {

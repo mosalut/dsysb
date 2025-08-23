@@ -21,6 +21,7 @@ const (
 const (
 	WS_NOTICE_PING = iota
 	WS_NOTICE_APPEND
+	WS_NOTICE_TASK
 	WS_NOTICE_ERR
 )
 
@@ -347,6 +348,10 @@ func noticeAppendBroadcast(block *block_T) {
 	data.Bits = hex.EncodeToString(block.head.bits[:])
 
 	noticeBroadcast(WS_NOTICE_APPEND, data)
+}
+
+func noticeTaskBroadcast(emit *taskEmit_T) {
+	noticeBroadcast(WS_NOTICE_TASK, emit)
 }
 
 func noticeErrorBroadcast(err error) {
