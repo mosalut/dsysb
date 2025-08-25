@@ -34,14 +34,14 @@ var receivedTransportIdsMutex = &sync.RWMutex{}
 func lifeCycle(peer *q2p.Peer_T, rAddr *net.UDPAddr, cycle int) {
 	switch cycle {
 	case q2p.JOIN:
-		err := sendLastestBlock(rAddr)
+		err := sendLatestBlock(rAddr)
 		if err != nil {
 			print(log_error, err)
 		}
 		print(log_info, "life cycle JOIN")
 	case q2p.CONNECT:
 		print(log_info, "life cycle CONNECT")
-		err := sendLastestBlock(rAddr)
+		err := sendLatestBlock(rAddr)
 		if err != nil {
 			print(log_error, err)
 		}

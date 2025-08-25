@@ -116,7 +116,7 @@ func initIndex() {
 	}
 }
 
-func sendLastestBlock(rAddr *net.UDPAddr) error {
+func sendLatestBlock(rAddr *net.UDPAddr) error {
 	block, err := getHashBlock()
 	if err != nil {
 		return err

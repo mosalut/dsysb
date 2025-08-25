@@ -374,28 +374,28 @@ func (task *task_T) inc64u(p0 int) error {
 
 /* ------ dec ------ */
 func (task *task_T) dec8(p0 int) error {
-	task.vData[p0] = byte(int8(task.vData[p0]) + 1)
+	task.vData[p0] = byte(int8(task.vData[p0]) - 1)
 
 	return nil
 }
 
 func (task *task_T) dec16(p0 int) error {
 	x := int16(binary.LittleEndian.Uint16(task.vData[p0:p0 + 2]))
-	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], uint16(x + 1))
+	binary.LittleEndian.PutUint16(task.vData[p0:p0 + 2], uint16(x - 1))
 
 	return nil
 }
 
 func (task *task_T) dec32(p0 int) error {
 	x := int32(binary.LittleEndian.Uint32(task.vData[p0:p0 + 4]))
-	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 4], uint32(x + 1))
+	binary.LittleEndian.PutUint32(task.vData[p0:p0 + 4], uint32(x - 1))
 
 	return nil
 }
 
 func (task *task_T) dec64(p0 int) error {
 	x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
-	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 8], uint64(x + 1))
+	binary.LittleEndian.PutUint64(task.vData[p0:p0 + 8], uint64(x - 1))
 
 	return nil
 }
