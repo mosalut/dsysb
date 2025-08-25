@@ -132,6 +132,9 @@ func (state *state_T) count(coinbase *coinbase_T)  {
 	for key, asset := range state.assets {
 		if asset.remain == 0 {
 			delete(state.assets, key)
+			for _, account := range state.accounts {
+				delete(account.assets, key)
+			}
 		}
 
 		coinbase.amount += uint64(asset.price)

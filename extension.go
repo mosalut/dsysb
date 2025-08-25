@@ -175,6 +175,8 @@ func (et *extension_T) validate(head *blockHead_T, fromP2p bool) error {
 		if !b {
 			return errors.New("There is not this task")
 		}
+	default:
+			return errors.New("Invalid aot")
 	}
 
 	account, ok := state.accounts[et.from]
