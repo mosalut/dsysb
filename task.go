@@ -569,9 +569,9 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-			ip += 2
-			err = task.eq(reg, p0, p1, p2, p3, &ip)
+			flag := task.instructs[ip]
+			ip++
+			err = task.eq(reg, p0, p1, p2, flag, &ip)
 		case ins_gt:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
@@ -579,9 +579,9 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-			ip += 2
-			err = task.gt(reg, p0, p1, p2, p3, &ip)
+			flag := task.instructs[ip]
+			ip++
+			err = task.eq(reg, p0, p1, p2, flag, &ip)
 		case ins_lt:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
@@ -589,9 +589,9 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-			ip += 2
-			err = task.lt(reg, p0, p1, p2, p3, &ip)
+			flag := task.instructs[ip]
+			ip++
+			err = task.eq(reg, p0, p1, p2, flag, &ip)
 		case ins_gteq:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
@@ -599,9 +599,9 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-			ip += 2
-			err = task.gteq(reg, p0, p1, p2, p3, &ip)
+			flag := task.instructs[ip]
+			ip++
+			err = task.eq(reg, p0, p1, p2, flag, &ip)
 		case ins_lteq:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
@@ -609,9 +609,9 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-			ip += 2
-			err = task.lteq(reg, p0, p1, p2, p3, &ip)
+			flag := task.instructs[ip]
+			ip++
+			err = task.eq(reg, p0, p1, p2, flag, &ip)
 		case ins_eq_bytes:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
@@ -676,6 +676,8 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // vdata position
 			ip += 2
 			err = task.push64(params, p0, p1)
+		case ins_exit:
+			return nil
 	//	default:
 	//		copy(task.vData, d)
 	//		return errors.New("Invalid instruction")

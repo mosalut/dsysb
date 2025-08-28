@@ -85,4 +85,6 @@ const (
 	ins_push16
 	ins_push32
 	ins_push64
+
+	ins_exit
 )

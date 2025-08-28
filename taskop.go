@@ -478,9 +478,7 @@ func (task *task_T) readUint64(reg *reg_T, p0 int) error {
 }
 
 /* ------ compare ------ */
-func (task *task_T) eq(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
-	flag := uint8(task.vData[p3])
-
+func (task *task_T) eq(reg *reg_T, p0, p1, p2 int, flag uint8, ip *int) error {
 	switch flag {
 	case 0:
 		x := task.vData[p0]
@@ -509,9 +507,7 @@ func (task *task_T) eq(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
 	return nil
 }
 
-func (task *task_T) gt(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
-	flag := uint8(task.vData[p3])
-
+func (task *task_T) gt(reg *reg_T, p0, p1, p2 int, flag uint8, ip *int) error {
 	switch flag {
 	case 0:
 		x := task.vData[p0]
@@ -556,9 +552,7 @@ func (task *task_T) gt(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
 	return nil
 }
 
-func (task *task_T) lt(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
-	flag := uint8(task.vData[p3])
-
+func (task *task_T) lt(reg *reg_T, p0, p1, p2 int, flag uint8, ip *int) error {
 	switch flag {
 	case 0:
 		x := task.vData[p0]
@@ -603,9 +597,7 @@ func (task *task_T) lt(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
 	return nil
 }
 
-func (task *task_T) gteq(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
-	flag := uint8(task.vData[p3])
-
+func (task *task_T) gteq(reg *reg_T, p0, p1, p2 int, flag uint8, ip *int) error {
 	switch flag {
 	case 0:
 		x := task.vData[p0]
@@ -650,9 +642,7 @@ func (task *task_T) gteq(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
 	return nil
 }
 
-func (task *task_T) lteq(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
-	flag := uint8(task.vData[p3])
-
+func (task *task_T) lteq(reg *reg_T, p0, p1, p2 int, flag uint8, ip *int) error {
 	switch flag {
 	case 0:
 		x := task.vData[p0]
