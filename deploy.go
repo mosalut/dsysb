@@ -218,20 +218,36 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 		}
 	}
 
-	var nonce uint32
 	state, err := getState()
 	if err != nil {
 		return err
 	}
 
-	account, ok := state.accounts[dt.from]
-	if ok {
-		nonce = account.nonce
+	taskIdB := task.hash()
+	taskId := hex.EncodeToString(taskIdB[:])
+	for _, task := range state.tasks {
+		h := task.hash()
+		if hex.EncodeToString(h[:]) == taskId {
+			return errors.New("The task is already in")
+		}
 	}
+
+	account, ok := state.accounts[dt.from]
+	if !ok {
+		return errors.New("DT address is empty address")
+	}
+	nonce := account.nonce
 
 	fmt.Println("nonce:", dt.nonce, nonce)
 	if dt.nonce - nonce != 1 {
 		return errNonceExpired
+	}
+
+	holdAmount := uint64(dt.price) * uint64(dt.blocks)
+	totalSpend := holdAmount + dt.fee()
+
+	if account.balance < totalSpend {
+		return errors.New("Not enough DSBs")
 	}
 
 	ok = dt.verifySign()
@@ -272,7 +288,7 @@ func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) e
 	for _, task := range state.tasks {
 		h := task.hash()
 		if hex.EncodeToString(h[:]) == taskId {
-			return errors.New("task is already in")
+			return errors.New("The task is already in")
 		}
 	}
 
@@ -285,7 +301,7 @@ func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) e
 	totalSpend := holdAmount + dt.fee()
 
 	if account.balance < totalSpend {
-		return errors.New("not enough minerals")
+		return errors.New("Not enough DSBs")
 	}
 
 	state.tasks = append(state.tasks, task)

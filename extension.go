@@ -155,33 +155,44 @@ func (et *extension_T) validate(head *blockHead_T, fromP2p bool) error {
 		return err
 	}
 
+	account, ok := state.accounts[et.from]
+	if !ok {
+		return errors.New("DT address is empty address")
+	}
+
 	id := hex.EncodeToString(et.nId[:])
 
 	switch et.aot {
 	case 0:
-		_, ok := state.assets[id]
+		asset, ok := state.assets[id]
 		if !ok {
-			return errors.New("There is not this asset")
+			return errors.New("No this asset:" + id)
+		}
+
+		holdAmount := uint64(asset.price) * uint64(et.blocks)
+		totalSpend := holdAmount + et.fee()
+		if account.balance < totalSpend {
+			return errors.New("Not enough DSBs")
 		}
 	case 1:
-		var b bool
-		for _, t := range state.tasks {
+		var task *task_T
+		for k, t := range state.tasks {
 			tId := t.hash()
 			if hex.EncodeToString(tId[:]) == id {
-				b = true
+				task = state.tasks[k]
 				break
 			}
 		}
-		if !b {
-			return errors.New("There is not this task")
+		if task == nil {
+			return errors.New("No this task:" + id)
+		}
+		holdAmount := uint64(task.price) * uint64(et.blocks)
+		totalSpend := holdAmount + et.fee()
+		if account.balance < totalSpend {
+			return errors.New("not enough DSBs")
 		}
 	default:
-			return errors.New("Invalid aot")
-	}
-
-	account, ok := state.accounts[et.from]
-	if !ok {
-		return errors.New("There's not the account id")
+		return errors.New("Invalid aot")
 	}
 
 	nonce = account.nonce
@@ -210,13 +221,16 @@ func (et *extension_T) count(state *state_T, coinbase *coinbase_T, index int) er
 	case 0:
 		asset, ok := state.assets[id]
 		if !ok {
-			return errors.New("There is not this asset")
+			return errors.New("No this asset:" + id)
 		}
+
 		holdAmount := uint64(asset.price) * uint64(et.blocks)
 		totalSpend := holdAmount + et.fee()
+
 		if account.balance < totalSpend {
-			return errors.New("not enough DSBs")
+			return errors.New("Not enough DSBs")
 		}
+
 		account.balance -= totalSpend
 		asset.remain += et.blocks
 	case 1:
@@ -225,13 +239,16 @@ func (et *extension_T) count(state *state_T, coinbase *coinbase_T, index int) er
 			tId := t.hash()
 			if hex.EncodeToString(tId[:]) == id {
 				task = state.tasks[k]
+				break
 			}
 		}
 		holdAmount := uint64(task.price) * uint64(et.blocks)
 		totalSpend := holdAmount + et.fee()
+
 		if account.balance < totalSpend {
 			return errors.New("not enough DSBs")
 		}
+
 		account.balance -= totalSpend
 		task.remain += et.blocks
 	}

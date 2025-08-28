@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"net/http"
-	"errors"
 )
 
 const (
@@ -675,9 +674,9 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // vdata position
 			ip += 2
 			err = task.push64(params, p0, p1)
-		default:
-			copy(task.vData, d)
-			return errors.New("Invalid instruction")
+	//	default:
+	//		copy(task.vData, d)
+	//		return errors.New("Invalid instruction")
 		}
 
 		if err != nil {

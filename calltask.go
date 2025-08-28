@@ -131,30 +131,39 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 		}
 	}
 
-	var nonce uint32
 	state, err := getState()
 	if err != nil {
 		return err
 	}
 
+	var ok bool
 	for _, task := range state.tasks {
 		h := task.hash()
 		if hex.EncodeToString(h[:]) == hex.EncodeToString(ct.taskId[:]) {
 			if ct.bytePrice < task.price {
 				return errors.New(fmt.Sprintf("The byte price should >= task's deploy price: %d", task.price))
 			}
-			err := task.validateCall(ct.params)
+			err := task.validateCall(state, ct)
 			if err != nil {
 				return err
 			}
+			ok = true
 			break
 		}
 	}
 
+	if !ok {
+		return errors.New("The task of CT is not found")
+	}
 
 	account, ok := state.accounts[ct.from]
-	if ok {
-		nonce = account.nonce
+	if !ok {
+		return errors.New("CT address is empty address")
+	}
+	nonce := account.nonce
+
+	if account.balance < ct.fee() {
+		return errors.New("Not enough minerals")
 	}
 
 	fmt.Println("nonce:", ct.nonce, nonce)
@@ -182,6 +191,7 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 		tId := t.hash()
 		if hex.EncodeToString(tId[:]) == hex.EncodeToString(ct.taskId[:]) {
 			task = state.tasks[k]
+			break
 		}
 	}
 
@@ -197,6 +207,7 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 	if account.balance < ct.fee() {
 		return errors.New("Not enough minerals")
 	}
+
 	account.balance -= ct.fee()
 	coinbase.amount += ct.fee()
 	account.nonce = ct.nonce
@@ -242,14 +253,3 @@ func (tx *callTask_T) String() string {
 			"\tfee: %d\n" +
 			"%s", tx.hash(), tx.from, tx.taskId, tx.params, tx.nonce, tx.bytePrice, tx.fee(), tx.signer)
 }
-
-/*
-func isCall(bs []byte) bool {
-	length := len(bs)
-	if length < 202 || length > 65536 {
-		return false
-	}
-
-	return validateAddress(string(bs[:34]))
-}
-*/

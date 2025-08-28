@@ -94,6 +94,16 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("Transfer to self is not allowed")
 	}
 
+	state, err := getState()
+	if err != nil {
+		return err
+	}
+
+	accountFrom, ok := state.accounts[transfer.from]
+	if !ok {
+		return errors.New("The address of transfer from is empty")
+	}
+
 	s := hex.EncodeToString(transfer.signer.signature[:])
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")
@@ -120,27 +130,41 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 		}
 	}
 
-	state, err := getState()
-	if err != nil {
-		return err
-	}
-
 	assetId := hex.EncodeToString(transfer.assetId[:])
 
-	if assetId != dsysbId {
+	fee := transfer.fee()
+
+	if assetId == dsysbId {
+		if accountFrom.balance < transfer.amount + fee {
+			return errors.New("Not enough DSBs: amount + fee")
+		}
+	} else {
 		asset, ok := state.assets[assetId]
 		if !ok {
-			return errors.New("There's not the asset id: " + assetId)
+			return errors.New("No this asset:" + assetId)
 		}
 
 		if transfer.bytePrice < asset.price {
 			return errors.New(fmt.Sprintf("The byte price should >= asset's create price: %d", asset.price))
 		}
+
+		if accountFrom.balance < fee {
+			return errors.New("Not enough DSBs: fee")
+		}
+
+		balance, ok := accountFrom.assets[assetId]
+		if !ok {
+			return errors.New("No this asset: " + assetId + " in this account:" + transfer.from)
+		}
+
+		if balance < transfer.amount {
+			return errors.New("Not enough asset tokens")
+		}
 	}
 
 	account, ok := state.accounts[transfer.from]
 	if !ok {
-		return errors.New("There's not the account id")
+		return errors.New("No this account:" + transfer.from)
 	}
 
 	nonce := account.nonce
@@ -183,10 +207,10 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 		accountTo.assets = make(map[string]uint64)
 	}
 
-	id := hex.EncodeToString(transfer.assetId[:])
+	assetId := hex.EncodeToString(transfer.assetId[:])
 	fee := transfer.fee()
 
-	if id == dsysbId {
+	if assetId == dsysbId {
 		if accountFrom.balance < transfer.amount + fee {
 			return errors.New("not enough DSBs: amount + fee")
 		}
@@ -196,20 +220,25 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 		if accountFrom.balance < fee {
 			return errors.New("not enough DSBs: fee")
 		}
-		balance, ok := accountFrom.assets[id]
+
+		balance, ok := accountFrom.assets[assetId]
 		if !ok {
-			return errors.New("There are not the asset tokens: " + id + " in this account")
+			return errors.New("No this asset: " + assetId + " in this account:" + transfer.from)
 		}
 
 		if balance < transfer.amount {
-			return errors.New("not enough asset token")
+			return errors.New("Not enough asset tokens")
 		}
 
-		_, ok = accountTo.assets[id]
+		_, ok = accountTo.assets[assetId]
 		if !ok {
-			accountTo.assets[id] = 0
+			accountTo.assets[assetId] = 0
 		}
-		accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
+		accountFrom.assets[assetId], accountTo.assets[assetId] = accountFrom.assets[assetId] - transfer.amount, accountTo.assets[assetId] + transfer.amount
+
+		if accountFrom.assets[assetId] == 0 {
+			delete(accountFrom.assets, assetId)
+		}
 	}
 
 	accountFrom.balance -= fee

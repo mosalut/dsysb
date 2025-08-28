@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 )
@@ -938,11 +939,13 @@ func (task *task_T) paramsCheck(pLength, length int, args ...int) error {
 	return nil
 }
 
-func (task *task_T) validateCall(params []byte) error {
+func (task *task_T) validateCall(state *state_T, ct *callTask_T) error {
 	// variable ip int for instructs
 
 	instructsLength := len(task.instructs)
-	pLength := len(params)
+	pLength := len(ct.params)
+
+	address := ct.from
 
 	for ip := 0; ip < instructsLength; {
 		ipx := ip
@@ -951,8 +954,194 @@ func (task *task_T) validateCall(params []byte) error {
 			return nil
 		}
 
+		if task.instructs[ipx] > ins_push64 {
+			return errors.New("Invalid instruction")
+		}
+
 		var err error
 		switch task.instructs[ipx] {
+		case ins_quo8:
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 6
+
+			d := int8(task.vData[p1])
+			if d == 0 {
+				err = errors.New("quo8 p1, divisor is zero")
+			}
+		case ins_quo16:
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 6
+
+			d := int16(binary.LittleEndian.Uint16(task.vData[p1:p1 + 2]))
+			if d == 0 {
+				err = errors.New("quo16 p1, divisor is zero")
+			}
+		case ins_quo32:
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 6
+
+			d := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 2]))
+			if d == 0 {
+				err = errors.New("quo32 p1, divisor is zero")
+			}
+		case ins_quo64:
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 6
+
+			d := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 2]))
+			if d == 0 {
+				err = errors.New("quo64 p1, divisor is zero")
+			}
+		case ins_quo8u:
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 6
+
+			d := task.vData[p1]
+			if d == 0 {
+				err = errors.New("quo8u p1, divisor is zero")
+			}
+		case ins_quo16u:
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 6
+
+			d := binary.LittleEndian.Uint16(task.vData[p1:p1 + 2])
+			if d == 0 {
+				err = errors.New("quo16u p1, divisor is zero")
+			}
+		case ins_quo32u:
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 6
+
+			d := binary.LittleEndian.Uint32(task.vData[p1:p1 + 2])
+			if d == 0 {
+				err = errors.New("quo32u p1, divisor is zero")
+			}
+		case ins_quo64u:
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 6
+
+			d := binary.LittleEndian.Uint64(task.vData[p1:p1 + 2])
+			if d == 0 {
+				err = errors.New("quo64u p1, divisor is zero")
+			}
+		case ins_eq:
+			ip += 6
+			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+
+			if task.vData[p3] > 3 {
+				err = errors.New("Wrong type of task op eq")
+			}
+		case ins_gt:
+			ip += 6
+			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+
+			if task.vData[p3] > 7 {
+				err = errors.New("Wrong type of task op gt")
+			}
+		case ins_lt:
+			ip += 6
+			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+
+			if task.vData[p3] > 7 {
+				err = errors.New("Wrong type of task op lt")
+			}
+		case ins_gteq:
+			ip += 6
+			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+
+			if task.vData[p3] > 7 {
+				err = errors.New("Wrong type of task op gteq")
+			}
+		case ins_lteq:
+			ip += 6
+			p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
+			ip += 2
+
+			if task.vData[p3] > 7 {
+				err = errors.New("Wrong type of task op lteq")
+			}
+		case ins_height:
+			_, err = getIndex()
+		case ins_transfer_dsb_from_caller:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // amount
+			ip += 2
+
+			accountFrom, ok := state.accounts[address]
+			if !ok {
+				return errors.New("task op call:the `from` account is not found")
+			}
+
+			amount := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
+			if accountFrom.balance < amount {
+				return errors.New("task op call:not enough more DSBs")
+			}
+		case ins_transfer_dsb_to_caller:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // amount
+			ip += 2
+
+			accountFrom, ok := state.accounts[task.address]
+			if !ok {
+				return errors.New("task op call:the `from` account is not found")
+			}
+
+			amount := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
+			if accountFrom.balance < amount {
+				return errors.New("task op call:not enough more DSBs")
+			}
+		case ins_transfer_from_caller:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // asset id
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // amount
+			ip += 2
+
+			accountFrom, ok := state.accounts[address]
+			if !ok {
+				return errors.New("task op call:the `from` account is not found")
+			}
+
+			assetId := hex.EncodeToString(task.vData[p0:p0 + 32])
+			_, ok = accountFrom.assets[assetId]
+			if !ok {
+				return errors.New("task op call:the `from` account's asset is not found")
+			}
+
+			amount := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+			if accountFrom.assets[assetId] < amount {
+				return errors.New("task op call:not enough more tokens")
+			}
+		case ins_transfer_to_caller:
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // asset id
+			ip += 2
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // amount
+			ip += 2
+
+			accountFrom, ok := state.accounts[task.address]
+			if !ok {
+				return errors.New("task op call:the `from` account is not found")
+			}
+
+			assetId := hex.EncodeToString(task.vData[p0:p0 + 32])
+			_, ok = accountFrom.assets[assetId]
+			if !ok {
+				return errors.New("task op call:the `from` account's asset is not found")
+			}
+
+			amount := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
+			if accountFrom.assets[assetId] < amount {
+				return errors.New("task op call:not enough more tokens")
+			}
 		case ins_pushsb:
 			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // params position
 			ip += 4

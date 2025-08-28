@@ -498,8 +498,8 @@ func (task *task_T) eq(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
 		x := binary.LittleEndian.Uint64(task.vData[p0:p0 + 8])
 		y := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 		reg.vBool = x == y
-	default:
-		return errors.New("Wrong type of task op eq")
+//	default:
+//		return errors.New("Wrong type of task op eq")
 	}
 
 	if reg.vBool {
@@ -545,8 +545,8 @@ func (task *task_T) gt(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
 		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 		reg.vBool = x > y
-	default:
-		return errors.New("Wrong type of task op gt")
+//	default:
+//		return errors.New("Wrong type of task op gt")
 	}
 
 	if reg.vBool {
@@ -592,8 +592,8 @@ func (task *task_T) lt(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
 		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 		reg.vBool = x < y
-	default:
-		return errors.New("Wrong type of task op lt")
+//	default:
+//		return errors.New("Wrong type of task op lt")
 	}
 
 	if reg.vBool {
@@ -639,8 +639,8 @@ func (task *task_T) gteq(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
 		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 		reg.vBool = x >= y
-	default:
-		return errors.New("Wrong type of task op gteq")
+//	default:
+//		return errors.New("Wrong type of task op gteq")
 	}
 
 	if reg.vBool {
@@ -686,8 +686,8 @@ func (task *task_T) lteq(reg *reg_T, p0, p1, p2, p3 int, ip *int) error {
 		x := int64(binary.LittleEndian.Uint64(task.vData[p0:p0 + 8]))
 		y := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 		reg.vBool = x <= y
-	default:
-		return errors.New("task op call:Wrong type of task op lteq")
+//	default:
+//		return errors.New("task op call:Wrong type of task op lteq")
 	}
 
 	if reg.vBool {

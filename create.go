@@ -176,16 +176,41 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 		}
 	}
 
-	var nonce uint32
 	state, err := getState()
 	if err != nil {
 		return err
 	}
 
-	account, ok := state.accounts[ca.from]
-	if ok {
-		nonce = account.nonce
+	asset := &asset_T {
+		ca.name,
+		ca.symbol,
+		ca.decimals,
+		ca.totalSupply,
+		ca.price,
+		ca.blocks,
+		ca.blocks,
 	}
+
+	assetIdB := asset.hash()
+	assetId := hex.EncodeToString(assetIdB[:])
+	_, ok := state.assets[assetId]
+	if ok {
+		return errors.New("Asset is already in")
+	}
+
+	account, ok := state.accounts[ca.from]
+	if !ok {
+		return errors.New("CA from is empty address")
+	}
+
+	holdAmount := uint64(ca.price) * uint64(ca.blocks)
+	totalSpend := holdAmount + ca.fee()
+
+	if account.balance < totalSpend {
+		return errors.New("Not enough DSBs")
+	}
+
+	nonce := account.nonce
 
 	fmt.Println("nonce:", ca.nonce, nonce)
 	if ca.nonce - nonce != 1 {
@@ -228,6 +253,7 @@ func (ca *createAsset_T) count(state *state_T, coinbase *coinbase_T, index int) 
 	if !ok {
 		return errors.New("CA from is empty address")
 	}
+
 
 	holdAmount := uint64(ca.price) * uint64(ca.blocks)
 	totalSpend := holdAmount + ca.fee()

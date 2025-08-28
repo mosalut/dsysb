@@ -95,25 +95,49 @@ func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 			return errors.New("Exchange to self is not allowed")
 		}
 
+		accountFrom, ok := state.accounts[transfer.from]
+		if !ok {
+			return errors.New("Transfer from is empty address")
+		}
+
 		assetId := fmt.Sprintf("%064x", transfer.assetId)
 
-		if assetId != dsysbId {
+		fee := transfer.fee()
+
+		if assetId == dsysbId {
+			if accountFrom.balance < transfer.amount + fee {
+				return errors.New("Not enough DSBs: amount + fee")
+			}
+		} else {
 			asset, ok := state.assets[assetId]
 			if !ok {
-				return errors.New("There's not the asset id: " + assetId)
+				return errors.New("No this asset:" + assetId)
 			}
 
 			if transfer.bytePrice < asset.price {
 				return errors.New(fmt.Sprintf("The byte price should >= asset's create price: %d", asset.price))
 			}
+
+			if accountFrom.balance < fee {
+				return errors.New("Not enough DSBs: fee")
+			}
+
+			balance, ok := accountFrom.assets[assetId]
+			if !ok {
+				return errors.New("No this asset:" + assetId + " in this account:" + transfer.from)
+			}
+
+			if balance < transfer.amount {
+				return errors.New("Not enough asset tokens")
+			}
+		}
+
+		account, ok := state.accounts[transfer.from]
+		if !ok {
+			return errors.New("No this account:" + transfer.from)
 		}
 
 		var nonce uint32
-		account, ok := state.accounts[transfer.from]
-		if !ok {
-			return errors.New("There's not the account id")
-		}
-
 		nonce = account.nonce
 		if transfer.nonce - nonce != 1 {
 			return errNonceExpired
@@ -156,33 +180,37 @@ func (ex *exchange_T) count(state *state_T, coinbase *coinbase_T, index int) err
 			accountTo.assets = make(map[string]uint64)
 		}
 
-		id := fmt.Sprintf("%064x", transfer.assetId)
+		assetId := fmt.Sprintf("%064x", transfer.assetId)
 
-		if id == dsysbId {
-			if accountFrom.balance < transfer.amount {
-				return errors.New("not enough minerals")
+		fee := transfer.fee()
+		if assetId == dsysbId {
+			if accountFrom.balance < transfer.amount + fee {
+				return errors.New("Not enough DSBs: amount + fee")
 			}
 
 			accountFrom.balance, accountTo.balance = accountFrom.balance - transfer.amount, accountTo.balance + transfer.amount
 		} else {
-			balance, ok := accountFrom.assets[id]
+			balance, ok := accountFrom.assets[assetId]
 			if !ok {
-				return errors.New("There is not this asset")
+				return errors.New("No this asset:" + assetId + " in this account:" + transfer.from)
 			}
 
 			if balance < transfer.amount {
-				return errors.New("not enough minerals")
+				return errors.New("Not enough asset tokens")
 			}
 
-			_, ok = accountTo.assets[id]
+			_, ok = accountTo.assets[assetId]
 			if !ok {
-				accountTo.assets[id] = 0
+				accountTo.assets[assetId] = 0
 			}
-			accountFrom.assets[id], accountTo.assets[id] = accountFrom.assets[id] - transfer.amount, accountTo.assets[id] + transfer.amount
+			accountFrom.assets[assetId], accountTo.assets[assetId] = accountFrom.assets[assetId] - transfer.amount, accountTo.assets[assetId] + transfer.amount
+
+			if accountFrom.assets[assetId] == 0 {
+				delete(accountFrom.assets, assetId)
+			}
 		}
 
 		accountFrom.balance -= transfer.fee()
-	//	state.accounts[*address].balance += transfer.fee()
 		coinbase.amount += transfer.fee()
 		accountFrom.nonce = transfer.nonce
 	}
