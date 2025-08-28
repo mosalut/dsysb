@@ -20,9 +20,6 @@ func (task *task_T) validate() error {
 	for ip := 0; ip < instructsLength; {
 		ipx := ip
 		ip++
-		if instructsLength == ip {
-			return nil
-		}
 
 		insStartPositions = append(insStartPositions, uint16(ipx))
 

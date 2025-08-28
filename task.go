@@ -154,9 +154,11 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 	for ip := 0; ip < instructsLength; {
 		ipx := ip
 		ip++
+		/*
 		if instructsLength == ip {
 			return nil
 		}
+		*/
 
 		var err error
 		switch task.instructs[ipx] {
