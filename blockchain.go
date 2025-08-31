@@ -9,34 +9,50 @@ import (
 	"net/http"
 	"encoding/hex"
 	"encoding/binary"
+	"time"
 	"log"
+	"fmt"
 
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
 // 1f00ffff devnet
-const firstBlock = "000000000000000000000000000000000000000000000000000000000000000000000000000026a10d0e68a6a9a77bbc77dc65b0571879c1407c3b979dae6d31a6983432010000008667b8391835267215fd9e86bf8e6dd036f306b228275982065022c59522b09f47cedcc960bd5050a2a2645a04b3da3926d0b3a42e82403385cff37bce8b39341f00ffffe1ab9068000000003b6003002f00004443557a325a32443843395943375a5761564277417831367679677041473466535400743ba40b000000000000004443557a325a32443843395943375a5761564277417831367679677041473466535400743ba40b0000000000000000003000000000000000c9000000"
+// const firstBlock = "000000000000000000000000000000000000000000000000000000000000000000000000000026a10d0e68a6a9a77bbc77dc65b0571879c1407c3b979dae6d31a6983432010000008667b8391835267215fd9e86bf8e6dd036f306b228275982065022c59522b09f47cedcc960bd5050a2a2645a04b3da3926d0b3a42e82403385cff37bce8b39341f00ffffe1ab9068000000003b6003002f00004443557a325a32443843395943375a5761564277417831367679677041473466535400743ba40b000000000000004443557a325a32443843395943375a5761564277417831367679677041473466535400743ba40b0000000000000000003000000000000000c9000000"
 
-// 1d00ffff mainnet testnet
-// const firstBlock = ""
+// 1f00ffff mainnet testnet
+const firstBlock = "0000000000000000000000000000000000000000000000000000000000000000000000000000bd869d68f49088c390068af3fa725ad4c3e59b2ac35e525784842226142d01000000a15f2a63b7f3b863492639665f3978e3dc8dff990e408d42edacd715cbe1163650ac4d47c076a3176b09b29f94ff8b9b4d39f12d0cd7f6cba73178ea34495b501f00ffff1eceb06800000000339e01002f0000444658685a4c327543467170434d4566554c396f63675063447355767a396f4d764b00743ba40b00000000000000444658685a4c327543467170434d4566554c396f63675063447355767a396f4d764b00743ba40b0000000000000000003000000000000000c9000000"
 
 var networkID uint16
 
 type blockchainSync_T struct {
 	rAddr *net.UDPAddr
 	targetIndex uint32
-	synchronizing bool
+	timestamp int64
 }
 
-func (chainSync *blockchainSync_T) doing (rAddr *net.UDPAddr) {
-	blockchainSync.rAddr = rAddr
-	blockchainSync.synchronizing = true
+func (chainSync *blockchainSync_T) doing(rAddr *net.UDPAddr) {
+	chainSync.rAddr = rAddr
+	chainSync.timestamp = time.Now().Unix()
+}
+
+func (chainSync *blockchainSync_T) synchronizing() bool {
+	fmt.Println(chainSync.rAddr)
+	if chainSync.rAddr == nil {
+		return false
+	}
+
+	t := time.Now().Unix()
+	fmt.Println(t, chainSync.timestamp, t - chainSync.timestamp)
+	if t - chainSync.timestamp > 30 {
+		return false
+	}
+
+	return true
 }
 
 func (chainSync *blockchainSync_T) over () {
 	blockchainSync.rAddr = nil
 	blockchainSync.targetIndex = 0
-	blockchainSync.synchronizing = false
 }
 
 var blockchainSync blockchainSync_T
@@ -88,7 +104,6 @@ func rollbackChain(startIndex uint32) error {
 	batch.Put([]byte("index"), indexB)
 	err = chainDB.Write(batch, nil)
 	if err != nil {
-		blockchainSync.over()
 		return err
 	}
 

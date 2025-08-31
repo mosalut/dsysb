@@ -122,7 +122,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 
 		broadcastForward(body)
 	case p2p_add_block_event:
-		if blockchainSync.synchronizing {
+		if blockchainSync.synchronizing() {
 			print(log_warning, "p2p_add_block_event: adding or synchronizing")
 			return
 		}
@@ -131,6 +131,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 
 		block, err := decodeBlock(body[29:])
 		if err != nil {
+			blockchainSync.over()
 			print(log_warning, "p2p_add_block_event: decoding block failed", err)
 			return
 		}
@@ -221,10 +222,17 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		}
 
 	case p2p_is_fork_point_event:
-		if !blockchainSync.synchronizing {
+		if !blockchainSync.synchronizing() {
 			print(log_warning, "p2p_is_fork_point_event: synchronizing not start")
 			return
 		}
+
+		if blockchainSync.rAddr.String() != rAddr.String() {
+			print(log_warning, "p2p_sync_post_event: Another synchronizing is doing")
+			return
+		}
+
+		blockchainSync.timestamp = time.Now().Unix()
 
 		print(log_info, "p2p_is_fork_point_event:", blockchainSync)
 		if len(body[29:]) != 36 {
@@ -252,10 +260,17 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		}
 
 	case p2p_not_fork_point_event:
-		if !blockchainSync.synchronizing {
+		if !blockchainSync.synchronizing() {
 			print(log_warning, "p2p_not_fork_point_event: synchronizing not start")
 			return
 		}
+
+		if blockchainSync.rAddr.String() != rAddr.String() {
+			print(log_warning, "p2p_sync_post_event: Another synchronizing is doing")
+			return
+		}
+
+		blockchainSync.timestamp = time.Now().Unix()
 
 		print(log_info, "p2p_not_fork_point_event:", blockchainSync)
 		if len(body[29:]) != 36 {
@@ -284,6 +299,8 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 
+//		time.Sleep(time.Second)
+
 		index := binary.LittleEndian.Uint32(body[61:])
 		index++
 		bs := make([]byte, 4, 4)
@@ -301,10 +318,17 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 	case p2p_sync_post_event:
-		if !blockchainSync.synchronizing {
+		if !blockchainSync.synchronizing() {
 			print(log_warning, "p2p_sync_post_event: synchronizing not start")
 			return
 		}
+
+		if blockchainSync.rAddr.String() != rAddr.String() {
+			print(log_warning, "p2p_sync_post_event: Another synchronizing is doing")
+			return
+		}
+
+		blockchainSync.timestamp = time.Now().Unix()
 
 		print(log_info, "p2p_sync_post_event:")
 		bodyLength := len(body)

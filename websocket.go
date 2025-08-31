@@ -75,7 +75,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		case WS_START:
 			print(log_info, "start")
 
-			if blockchainSync.synchronizing {
+			if blockchainSync.synchronizing() {
 				err604 := minedError{"604", errSynchronizing.Error()}
 				noticeErrorBroadcast(err604)
 				print(log_info, err604)
@@ -110,7 +110,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 
 			print(log_info, "ws_update sent")
 		case WS_MINED_BLOCK:
-			if blockchainSync.synchronizing {
+			if blockchainSync.synchronizing() {
 				err604 := minedError{"604", errSynchronizing.Error()}
 				noticeErrorBroadcast(err604)
 				print(log_info, err604)

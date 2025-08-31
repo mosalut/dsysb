@@ -25,7 +25,8 @@ func initTargetValues() {
 		// others
 		stdBlockNum = 1024
 		stdBlockBatchSeconds = 614400 // 600 * 1024
-		difficult_1_target = [4]byte{ 0x1d, 0, 0xff, 0xff }
+	//	difficult_1_target = [4]byte{ 0x1d, 0, 0xff, 0xff }
+		difficult_1_target = [4]byte{ 0x1f, 0, 0xff, 0xff }
 	}
 }
 
