@@ -376,7 +376,7 @@ func makeBlockForMine(address string) (*block_T, error) {
 		err := block.body.transactions[i].count(block.state, block.body.transactions[0].(*coinbase_T), i)
 		if err != nil {
 			if len(block.body.transactions) == i + 1 {
-				block.body.transactions = block.body.transactions[i:]
+				block.body.transactions = block.body.transactions[:i]
 			} else {
 				block.body.transactions = append(block.body.transactions[:i], block.body.transactions[i + 1:]...)
 			}

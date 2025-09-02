@@ -26,33 +26,63 @@ var networkID uint16
 
 type blockchainSync_T struct {
 	rAddr *net.UDPAddr
+	synchronizing bool
 	targetIndex uint32
+	blockIndex uint32
 	timestamp int64
 }
 
 func (chainSync *blockchainSync_T) doing(rAddr *net.UDPAddr) {
 	chainSync.rAddr = rAddr
+	chainSync.synchronizing = true
 	chainSync.timestamp = time.Now().Unix()
+	go func() {
+		blockIndex := chainSync.blockIndex
+		for {
+			if !chainSync.synchronizing {
+				return
+			}
+
+			time.Sleep(time.Second * 8)
+			if blockIndex == chainSync.blockIndex {
+				fmt.Println("Request block height again")
+				rAddr := chainSync.rAddr
+				chainSync.over()
+				err := transport(rAddr, p2p_request_height_event, nil)
+				if err != nil {
+					print(log_info, err)
+				}
+
+				return
+			}
+
+
+			blockIndex = chainSync.blockIndex
+		}
+	}()
 }
 
+/*
 func (chainSync *blockchainSync_T) synchronizing() bool {
-	fmt.Println(chainSync.rAddr)
 	if chainSync.rAddr == nil {
 		return false
 	}
 
 	t := time.Now().Unix()
-	fmt.Println(t, chainSync.timestamp, t - chainSync.timestamp)
-	if t - chainSync.timestamp > 30 {
+	if t - chainSync.timestamp > 8 {
+		chainSync.over()
 		return false
 	}
 
 	return true
 }
+*/
 
 func (chainSync *blockchainSync_T) over () {
-	blockchainSync.rAddr = nil
-	blockchainSync.targetIndex = 0
+	chainSync.rAddr = nil
+	chainSync.synchronizing = false
+	chainSync.targetIndex = 0
+	chainSync.timestamp = 0
 }
 
 var blockchainSync blockchainSync_T
