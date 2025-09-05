@@ -360,13 +360,29 @@ func makeBlockForMine(address string) (*block_T, error) {
 	coinbase.nonce = index
 
 	block.body.transactions = txPool_T{ coinbase }
+	var txs txPool_T
 
 	if len(transactionPool) <= 511 {
-		block.body.transactions = append(block.body.transactions, transactionPool...)
+		txs = transactionPool
+	//	block.body.transactions = append(block.body.transactions, transactionPool...)
 		transactionPool = transactionPool[:0]
 	} else {
-		block.body.transactions = append(block.body.transactions, transactionPool[:511]...)
+		txs = transactionPool[:511]
+	//	block.body.transactions = append(block.body.transactions, transactionPool[:511]...)
 		transactionPool = transactionPool[511:]
+	}
+
+	for _, tx := range txs {
+		err := tx.validate(block.head, true)
+		if err != nil{
+			err605 := makeBlockError{"605:", err.Error()}
+			print(log_warning, err605)
+			noticeErrorBroadcast(err605)
+
+			continue
+		}
+
+		block.body.transactions = append(block.body.transactions, tx)
 	}
 
 	block.state.count(coinbase)
