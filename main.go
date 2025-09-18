@@ -26,8 +26,6 @@ func init() {
 	readFlags(cmdFlag)
 	flag.Parse()
 
-	networkID = uint16(cmdFlag.networkID)
-
 	conf = &config{}
 
 	initTargetValues()
@@ -60,7 +58,7 @@ func main() {
 		}
 	}
 
-	peer = q2p.NewPeer(cmdFlag.ip, cmdFlag.port, seedAddrs, networkID)
+	peer = q2p.NewPeer(cmdFlag.ip, cmdFlag.port, seedAddrs, uint16(cmdFlag.networkID))
 	q2p.SetConnectionNum(cmdFlag.cn)
 	peer.TimeSendLost = 5
 	peer.Timeout = 16

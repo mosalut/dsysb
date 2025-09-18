@@ -17,12 +17,19 @@ var (
 
 func initTargetValues() {
 	if cmdFlag.networkID == 0x10 {
-		// dev
+		// devnet
 		stdBlockNum = 100 // for test faster
 		stdBlockBatchSeconds = 60000 // 600 * 100 for dev faster
 		difficult_1_target = [4]byte{ 0x1f, 0x00, 0xff, 0xff }
+	} else if cmdFlag.networkID == 0 {
+		// mainnet
+		stdBlockNum = 2016
+		stdBlockBatchSeconds = 1209600 // 600 * 2016
+	//	difficult_1_target = [4]byte{ 0x1d, 0, 0xff, 0xff }
+		difficult_1_target = [4]byte{ 0x1f, 0, 0xff, 0xff }
+
 	} else {
-		// others
+		// testnet
 		stdBlockNum = 1024
 		stdBlockBatchSeconds = 614400 // 600 * 1024
 	//	difficult_1_target = [4]byte{ 0x1d, 0, 0xff, 0xff }
