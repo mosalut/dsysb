@@ -234,6 +234,16 @@ func (block *block_T)Append() error {
 
 	noticeAppendBroadcast(block)
 
+	socketData := socketData_T { WS_MINED_BLOCK, nil }
+	for c, _ := range minerConns {
+		err = c.WriteJSON(socketData)
+		if err != nil {
+			print(log_error, c.RemoteAddr(), err)
+			continue
+		}
+		print(log_info, c.RemoteAddr(), "ws_state mined sent")
+	}
+
 	return nil
 }
 

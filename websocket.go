@@ -247,18 +247,6 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			broadcast(p2p_add_block_event, data.Body)
-
-			socketData := socketData_T { WS_MINED_BLOCK, block.encode() }
-			for conn, _ := range minerConns {
-				err = conn.WriteJSON(socketData)
-				if err != nil {
-					print(log_error, conn.RemoteAddr, err)
-					continue
-				}
-				print(log_info, conn.RemoteAddr(), "ws_state mined sent")
-			}
-
 			block, err = makeBlockForMine(block.body.transactions[0].(*coinbase_T).to)
 			if err != nil {
 				err607 := minedError{"607", err.Error()}
@@ -268,14 +256,29 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			socketData = socketData_T { WS_PREPARED_BLOCK, block.encode() }
-			for conn, _ := range minerConns {
-				err = conn.WriteJSON(socketData)
-				if err != nil {
-					print(log_error, conn.RemoteAddr, err)
+			socketData := socketData_T { WS_PREPARED_BLOCK, block.encode() }
+			err = conn.WriteJSON(socketData)
+			if err != nil {
+				print(log_error, conn.RemoteAddr, err)
+				continue
+			}
+
+			print(log_info, conn.RemoteAddr(), "ws_state sent")
+
+			broadcast(p2p_add_block_event, data.Body)
+
+			socketData = socketData_T { WS_MINED_BLOCK, nil }
+			for c, _ := range minerConns {
+				if c.RemoteAddr() == conn.RemoteAddr() {
 					continue
 				}
-				print(log_info, conn.RemoteAddr(), "ws_state sent")
+
+				err = c.WriteJSON(socketData)
+				if err != nil {
+					print(log_error, c.RemoteAddr(), err)
+					continue
+				}
+				print(log_info, c.RemoteAddr(), "ws_state mined sent")
 			}
 		}
 	}

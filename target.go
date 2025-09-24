@@ -7,8 +7,6 @@ import (
 	"encoding/binary"
 )
 
-const stdSeconds = 600 // ten minutes
-
 var (
 	stdBlockNum uint32
 	stdBlockBatchSeconds int64
