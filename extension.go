@@ -14,19 +14,21 @@ import (
 )
 
 const (
-	extension_length = 208
+	extension_length = 242
 	extension_aot_position = 1
 	extension_from_position = 2
-	extension_nId_position = 36
-	extension_blocks_position = 68
-	extension_nonce_position = 72
-	extension_bytePrice_position = 76
-	extension_signer_position = 80
+	extension_hier_position = 36
+	extension_nId_position = 70
+	extension_blocks_position = 102
+	extension_nonce_position = 106
+	extension_bytePrice_position = 110
+	extension_signer_position = 114
 )
 
 type extension_T struct {
 	aot byte // asset or task
 	from string
+	hier string
 	nId [32]byte
 	blocks uint32
 	nonce uint32
@@ -38,7 +40,8 @@ func (et *extension_T) hash() [32]byte {
 	bs := make([]byte, extension_signer_position, extension_signer_position)
 	bs[0] = type_extension
 	bs[extension_aot_position] = et.aot
-	copy(bs[extension_from_position:extension_nId_position], et.from)
+	copy(bs[extension_from_position:extension_hier_position], et.from)
+	copy(bs[extension_hier_position:extension_nId_position], et.hier)
 	copy(bs[extension_nId_position:extension_blocks_position], et.nId[:])
 	binary.LittleEndian.PutUint32(bs[extension_blocks_position:extension_nonce_position], et.blocks)
 	binary.LittleEndian.PutUint32(bs[extension_nonce_position:extension_bytePrice_position], et.nonce)
@@ -51,7 +54,8 @@ func (et *extension_T) encode() []byte {
 	bs := make([]byte, extension_length, extension_length)
 	bs[0] = type_extension
 	bs[extension_aot_position] = et.aot
-	copy(bs[extension_from_position:extension_nId_position], et.from)
+	copy(bs[extension_from_position:extension_hier_position], et.from)
+	copy(bs[extension_hier_position:extension_nId_position], et.hier)
 	copy(bs[extension_nId_position:extension_blocks_position], et.nId[:])
 	binary.LittleEndian.PutUint32(bs[extension_blocks_position:extension_nonce_position], et.blocks)
 	binary.LittleEndian.PutUint32(bs[extension_nonce_position:extension_bytePrice_position], et.nonce)
@@ -74,7 +78,8 @@ func decodeExtension(bs []byte) *extension_T {
 	et := &extension_T{}
 
 	et.aot = bs[extension_aot_position]
-	et.from = string(bs[extension_from_position:extension_nId_position])
+	et.from = string(bs[extension_from_position:extension_hier_position])
+	et.hier = string(bs[extension_hier_position:extension_nId_position])
 	et.nId = [32]byte(bs[extension_nId_position:extension_blocks_position])
 	et.blocks = binary.LittleEndian.Uint32(bs[extension_blocks_position:extension_nonce_position])
 	et.nonce = binary.LittleEndian.Uint32(bs[extension_nonce_position:extension_bytePrice_position])
@@ -105,16 +110,21 @@ func (et *extension_T) String() string {
 		"\ttype: extension\n" +
 		"\taot: %d\n" +
 		"\tfrom: %s\n" +
+		"\thier: %s\n" +
 		"\tnid: %064x\n" +
 		"\tnonce: %d\n" +
 		"\tbyte price: %d\n" +
 		"\tfee: %d\n" +
-		"%s", et.hash(), et.aot, et.from, et.nId, et.nonce, et.bytePrice, et.fee(), et.signer)
+		"%s", et.hash(), et.aot, et.from, et.hier, et.nId, et.nonce, et.bytePrice, et.fee(), et.signer)
 }
 
 func (et *extension_T) validate(head *blockHead_T, fromP2p bool) error {
 	if !validateAddress(et.from) {
 		return errors.New("`from`: invalid address")
+	}
+
+	if !validateAddress(et.hier) {
+		return errors.New("`hier`: invalid address")
 	}
 
 	/*
@@ -212,7 +222,12 @@ func (et *extension_T) validate(head *blockHead_T, fromP2p bool) error {
 func (et *extension_T) count(state *state_T, coinbase *coinbase_T, index int) error {
 	account, ok := state.accounts[et.from]
 	if !ok {
-		return errors.New("DT address is empty address")
+		return errors.New("`from` address is empty address")
+	}
+
+	accountH, ok := state.accounts[et.hier]
+	if !ok {
+		return errors.New("`hier` address is empty address")
 	}
 
 	id := hex.EncodeToString(et.nId[:])
@@ -255,6 +270,17 @@ func (et *extension_T) count(state *state_T, coinbase *coinbase_T, index int) er
 
 	account.nonce = et.nonce
 
+	if et.from == et.hier {
+		return nil
+	}
+
+	accountH.balance += account.balance
+	for aid, balance := range account.assets {
+		accountH.assets[aid] += balance
+	}
+
+	delete(state.accounts, et.from)
+
 	return nil
 }
 
@@ -265,6 +291,7 @@ func (et *extension_T) Map() map[string]interface{} {
 	txM["type"] = type_extension
 	txM["aot"] = et.aot
 	txM["from"] = et.from
+	txM["hier"] = et.hier
 	txM["nId"] = hex.EncodeToString(et.nId[:])
 	txM["nonce"] = et.nonce
 	txM["byte price"] = et.bytePrice

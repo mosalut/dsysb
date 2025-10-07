@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	dtLengthWithoutSignature = 55 // 55 = type:1 + len_ins:2 + len_v:2 + price:4 + blocks:4 + from:34 + nonce:4 + bytePrice:4
-	dtLength = 183 // 183 = type:1 + len_ins:2 + len_v:2 + price:4 + blocks:4 + from:34 + nonce:4 + bytePrice:4 + signature:128
+	dtLengthWithoutSignature = 89 // 89 = type:1 + len_ins:2 + len_v:2 + price:4 + blocks:4 + from:34 + hier:34 + nonce:4 + bytePrice:4
+	dtLength = 217 // 217 = dtLengthWithoutSignature + signature:128
 )
 
 type deployTask_T struct {
@@ -24,6 +24,7 @@ type deployTask_T struct {
 	price uint32
 	blocks uint32
 	from string
+	hier string
 	nonce uint32
 	bytePrice uint32
 	signer *signer_T
@@ -45,8 +46,10 @@ func (tx *deployTask_T) hash() [32]byte {
 	binary.LittleEndian.PutUint32(bs[pricePosition:pricePosition + 4], tx.price)
 	binary.LittleEndian.PutUint32(bs[pricePosition + 4:pricePosition + 8], tx.blocks)
 	fromPosition := pricePosition + 8
-	noncePosition := fromPosition + 34
-	copy(bs[fromPosition:noncePosition], tx.from)
+	hierPosition := fromPosition + 34
+	copy(bs[fromPosition:hierPosition], tx.from)
+	noncePosition := hierPosition + 34
+	copy(bs[hierPosition:noncePosition], tx.hier)
 	bytePricePosition := noncePosition + 4
 	binary.LittleEndian.PutUint32(bs[noncePosition:bytePricePosition], tx.nonce)
 	signerPosition := bytePricePosition + 4
@@ -74,8 +77,10 @@ func (tx *deployTask_T) encode() []byte {
 	binary.LittleEndian.PutUint32(bs[pricePosition + 4:pricePosition + 8], tx.blocks)
 
 	fromPosition := pricePosition + 8
-	noncePosition := fromPosition + 34
-	copy(bs[fromPosition:noncePosition], tx.from)
+	hierPosition := fromPosition + 34
+	copy(bs[fromPosition:hierPosition], tx.from)
+	noncePosition := hierPosition + 34
+	copy(bs[hierPosition:noncePosition], tx.hier)
 	bytePricePosition := noncePosition + 4
 	binary.LittleEndian.PutUint32(bs[noncePosition:bytePricePosition], tx.nonce)
 	signerPosition := bytePricePosition + 4
@@ -107,8 +112,10 @@ func decodeDeployTask(bs []byte) *deployTask_T {
 	tx.price = binary.LittleEndian.Uint32(bs[pricePosition:pricePosition + 4])
 	tx.blocks = binary.LittleEndian.Uint32(bs[pricePosition + 4:pricePosition + 8])
 	fromPosition := pricePosition + 8
-	noncePosition := fromPosition + 34
-	tx.from = string(bs[fromPosition:noncePosition])
+	hierPosition := fromPosition + 34
+	tx.from = string(bs[fromPosition:hierPosition])
+	noncePosition := hierPosition + 34
+	tx.hier = string(bs[hierPosition:noncePosition])
 	bytePricePosition := noncePosition + 4
 	tx.nonce = binary.LittleEndian.Uint32(bs[noncePosition:bytePricePosition])
 	signerPosition := bytePricePosition + 4
@@ -132,6 +139,7 @@ func (tx *deployTask_T) Map() map[string]interface{} {
 	txM["price"] = tx.price
 	txM["blocks"] = tx.blocks
 	txM["from"] = tx.from
+	txM["hier"] = tx.hier
 	txM["nonce"] = tx.nonce
 	txM["bytePrice"] = tx.bytePrice
 	txM["signature"] = hex.EncodeToString(tx.signer.signature[:])
@@ -148,9 +156,10 @@ func (tx *deployTask_T) String() string {
 			"\tprice: %d\n" +
 			"\tblocks: %d\n" +
 			"\tfrom: %s\n" +
+			"\thier: %s\n" +
 			"\tnonce: %d\n" +
 			"\tbyte price: %d\n" +
-			"%s", tx.hash(), tx.instructs, tx.vData, tx.price, tx.blocks, tx.from, tx.nonce, tx.bytePrice, tx.signer)
+			"%s", tx.hash(), tx.instructs, tx.vData, tx.price, tx.blocks, tx.from, tx.hier, tx.nonce, tx.bytePrice, tx.signer)
 }
 
 func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
@@ -174,6 +183,10 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	if !validateAddress(dt.from) {
 		return errors.New("`from`: invalid address")
+	}
+
+	if !validateAddress(dt.hier) {
+		return errors.New("`hier`: invalid address")
 	}
 
 	s := hex.EncodeToString(dt.signer.signature[:])
@@ -234,7 +247,7 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	account, ok := state.accounts[dt.from]
 	if !ok {
-		return errors.New("DT address is empty address")
+		return errors.New("The from address is not in the state.accounts")
 	}
 	nonce := account.nonce
 
@@ -274,7 +287,7 @@ func (dt *deployTask_T) verifySign() bool {
 
 func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) error {
 	task := &task_T {
-		dt.from,
+		dt.hier,
 		dt.instructs,
 		dt.vData,
 		dt.nonce,
@@ -294,7 +307,14 @@ func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) e
 
 	account, ok := state.accounts[dt.from]
 	if !ok {
-		return errors.New("DT address is empty address")
+		return errors.New("The from address is not in the state.accounts")
+	}
+
+	accountH, ok := state.accounts[dt.hier]
+	if !ok {
+		state.accounts[dt.hier] = &account_T{}
+		accountH = state.accounts[dt.hier]
+		accountH.assets = make(map[string]uint64)
 	}
 
 	holdAmount := uint64(dt.price) * uint64(dt.blocks)
@@ -309,6 +329,17 @@ func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) e
 	account.balance -= totalSpend
 	coinbase.amount += dt.fee()
 	account.nonce = dt.nonce
+
+	if dt.from == dt.hier {
+		return nil
+	}
+
+	accountH.balance += account.balance
+	for aid, balance := range account.assets {
+		accountH.assets[aid] += balance
+	}
+
+	delete(state.accounts, dt.from)
 
 	return nil
 }

@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	exchange_length = 491
+	exchange_length = 559
 )
 
 type exchange_T [2]*transfer_T
@@ -91,6 +91,21 @@ func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 	}
 
 	for _, transfer := range ex {
+		ok := validateAddress(transfer.from)
+		if !ok {
+			return errors.New("`from`: invalid address")
+		}
+
+		ok = validateAddress(transfer.to)
+		if !ok {
+			return errors.New("`to`: invalid address")
+		}
+
+		ok = validateAddress(transfer.hier)
+		if !ok {
+			return errors.New("`hier`: invalid address")
+		}
+
 		if transfer.from == transfer.to {
 			return errors.New("Exchange to self is not allowed")
 		}
@@ -98,6 +113,11 @@ func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 		accountFrom, ok := state.accounts[transfer.from]
 		if !ok {
 			return errors.New("Transfer from is empty address")
+		}
+
+		s := hex.EncodeToString(transfer.signer.signature[:])
+		if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
+			return errors.New("Unsigned transaction")
 		}
 
 		assetId := fmt.Sprintf("%064x", transfer.assetId)
@@ -180,9 +200,16 @@ func (ex *exchange_T) count(state *state_T, coinbase *coinbase_T, index int) err
 			accountTo.assets = make(map[string]uint64)
 		}
 
-		assetId := fmt.Sprintf("%064x", transfer.assetId)
+		accountH, ok := state.accounts[transfer.hier]
+		if !ok {
+			state.accounts[transfer.hier] = &account_T{}
+			accountH = state.accounts[transfer.hier]
+			accountH.assets = make(map[string]uint64)
+		}
 
+		assetId := fmt.Sprintf("%064x", transfer.assetId)
 		fee := transfer.fee()
+
 		if assetId == dsysbId {
 			if accountFrom.balance < transfer.amount + fee {
 				return errors.New("Not enough DSBs: amount + fee")
@@ -190,6 +217,10 @@ func (ex *exchange_T) count(state *state_T, coinbase *coinbase_T, index int) err
 
 			accountFrom.balance, accountTo.balance = accountFrom.balance - transfer.amount, accountTo.balance + transfer.amount
 		} else {
+			if accountFrom.balance < fee {
+				return errors.New("not enough DSBs: fee in " + transfer.from)
+			}
+
 			balance, ok := accountFrom.assets[assetId]
 			if !ok {
 				return errors.New("No this asset:" + assetId + " in this account:" + transfer.from)
@@ -215,6 +246,22 @@ func (ex *exchange_T) count(state *state_T, coinbase *coinbase_T, index int) err
 		accountFrom.nonce = transfer.nonce
 	}
 
+	for _, transfer := range ex {
+		accountFrom, _ := state.accounts[transfer.from]
+		accountH, _ := state.accounts[transfer.hier]
+
+		if transfer.from == transfer.hier {
+			continue
+		}
+
+		accountH.balance += accountFrom.balance
+		for aid, balance := range accountFrom.assets {
+			accountH.assets[aid] += balance
+		}
+
+		delete(state.accounts, transfer.from)
+	}
+
 	return nil
 }
 
@@ -233,6 +280,7 @@ func (ex *exchange_T) Map() map[string]interface{} {
 
 	txM["tx0"].(map[string]interface{})["from"] = ex[0].from
 	txM["tx0"].(map[string]interface{})["to"] = ex[0].to
+	txM["tx0"].(map[string]interface{})["hier"] = ex[0].hier
 	txM["tx0"].(map[string]interface{})["amount"] = ex[0].amount
 	txM["tx0"].(map[string]interface{})["assetId"] = ex[0].assetId
 	txM["tx0"].(map[string]interface{})["nonce"] = ex[0].nonce
@@ -241,6 +289,7 @@ func (ex *exchange_T) Map() map[string]interface{} {
 
 	txM["tx1"].(map[string]interface{})["from"] = ex[1].from
 	txM["tx1"].(map[string]interface{})["to"] = ex[1].to
+	txM["tx1"].(map[string]interface{})["hier"] = ex[1].hier
 	txM["tx1"].(map[string]interface{})["amount"] = ex[1].amount
 	txM["tx1"].(map[string]interface{})["assetId"] = ex[1].assetId
 	txM["tx1"].(map[string]interface{})["nonce"] = ex[1].nonce
@@ -255,14 +304,16 @@ func (ex *exchange_T) String() string {
 		"\ttxid:\t%064x\n" +
 		"\tfrom: %s\n" +
 		"\tto: %s\n" +
+		"\thier: %s\n" +
 		"\tamount: %d\n" +
 		"\tasset id: %064x\n" +
 		"\tnonce: %d\n" +
 		"%s",
 		"\tfrom: %s\n" +
 		"\tto: %s\n" +
+		"\thier: %s\n" +
 		"\tamount: %d\n" +
 		"\tasset id: %064x\n" +
 		"\tnonce: %d\n" +
-		"%s", ex.hash(), ex[0].from, ex[0].to, ex[0].amount, ex[0].assetId, ex[0].nonce, ex[0].signer, ex[1].from, ex[1].to, ex[1].amount, ex[1].assetId, ex[1].nonce, ex[1].signer)
+		"%s", ex.hash(), ex[0].from, ex[0].to, ex[0].hier, ex[0].amount, ex[0].assetId, ex[0].nonce, ex[0].signer, ex[1].from, ex[1].hier, ex[1].to, ex[1].amount, ex[1].assetId, ex[1].nonce, ex[1].signer)
 }

@@ -236,7 +236,9 @@ func (block *block_T)Append() error {
 
 	socketData := socketData_T { WS_MINED_BLOCK, nil }
 	for c, _ := range minerConns {
+		minerMutex.Lock()
 		err = c.WriteJSON(socketData)
+		minerMutex.Unlock()
 		if err != nil {
 			print(log_error, c.RemoteAddr(), err)
 			continue

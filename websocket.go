@@ -3,6 +3,7 @@
 package main
 
 import (
+	"sync"
 	"encoding/binary"
 	"encoding/hex"
 	"net/http"
@@ -43,6 +44,8 @@ var upgrader = websocket.Upgrader {
 
 var minerConns = make(map[*websocket.Conn]interface{})
 var noticeConns = make(map[*websocket.Conn]interface{})
+var minerMutex = &sync.Mutex{}
+var noticeMutex = &sync.Mutex{}
 
 /* keepfunc */
 func socketHandler(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +94,9 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				print(log_error, err607)
 
 				socketData := socketData_T { WS_ERR, []byte(err.Error()) }
+				minerMutex.Lock()
 				err0 := conn.WriteJSON(socketData)
+				minerMutex.Unlock()
 				if err0 != nil {
 					print(log_error, err0)
 					continue
@@ -102,7 +107,9 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 			bs := block.encode()
 
 			socketData := socketData_T { WS_START, bs }
+			minerMutex.Lock()
 			err = conn.WriteJSON(socketData)
+			minerMutex.Unlock()
 			if err != nil {
 				print(log_error, err)
 				continue
@@ -151,7 +158,9 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 					print(log_error, err607)
 
 					socketData := socketData_T { WS_ERR, []byte(err.Error()) }
+					minerMutex.Lock()
 					err0 := conn.WriteJSON(socketData)
+					minerMutex.Unlock()
 					if err0 != nil {
 						print(log_error, err0)
 						continue
@@ -161,7 +170,9 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 				socketData := socketData_T { WS_PREPARED_BLOCK, block.encode() }
+				minerMutex.Lock()
 				err = conn.WriteJSON(socketData)
+				minerMutex.Unlock()
 				if err != nil {
 					print(log_error, conn.RemoteAddr, err)
 					continue
@@ -183,7 +194,9 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 					print(log_error, err607)
 
 					socketData := socketData_T { WS_ERR, []byte(err.Error()) }
+					minerMutex.Lock()
 					err0 := conn.WriteJSON(socketData)
+					minerMutex.Unlock()
 					if err0 != nil {
 						print(log_error, err0)
 						continue
@@ -193,7 +206,9 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 				socketData := socketData_T { WS_PREPARED_BLOCK, block.encode() }
+				minerMutex.Lock()
 				err = conn.WriteJSON(socketData)
+				minerMutex.Unlock()
 				if err != nil {
 					print(log_error, conn.RemoteAddr, err)
 					continue
@@ -216,7 +231,9 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 					print(log_error, err607)
 
 					socketData := socketData_T { WS_ERR, []byte(err.Error()) }
+					minerMutex.Lock()
 					err0 := conn.WriteJSON(socketData)
+					minerMutex.Unlock()
 					if err0 != nil {
 						print(log_error, err0)
 						continue
@@ -226,7 +243,9 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 				socketData := socketData_T { WS_PREPARED_BLOCK, block.encode() }
+				minerMutex.Lock()
 				err = conn.WriteJSON(socketData)
+				minerMutex.Unlock()
 				if err != nil {
 					print(log_error, conn.RemoteAddr, err)
 					continue
@@ -256,8 +275,11 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			socketData := socketData_T { WS_PREPARED_BLOCK, block.encode() }
+			bs := block.encode()
+			socketData := socketData_T { WS_PREPARED_BLOCK, bs }
+			minerMutex.Lock()
 			err = conn.WriteJSON(socketData)
+			minerMutex.Unlock()
 			if err != nil {
 				print(log_error, conn.RemoteAddr, err)
 				continue
@@ -267,13 +289,15 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 
 			broadcast(p2p_add_block_event, data.Body)
 
-			socketData = socketData_T { WS_MINED_BLOCK, nil }
+			socketData = socketData_T { WS_MINED_BLOCK, bs }
 			for c, _ := range minerConns {
 				if c.RemoteAddr() == conn.RemoteAddr() {
 					continue
 				}
 
+				minerMutex.Lock()
 				err = c.WriteJSON(socketData)
+				minerMutex.Unlock()
 				if err != nil {
 					print(log_error, c.RemoteAddr(), err)
 					continue
@@ -319,7 +343,9 @@ func noticeError(conn *websocket.Conn, msg string) {
 func noticePush(conn *websocket.Conn, event int, data interface{}) error {
 	noticeData := noticeData_T { event, data }
 
+	noticeMutex.Lock()
 	err := conn.WriteJSON(noticeData)
+	noticeMutex.Unlock()
 	if err != nil {
 		if isWebsocketCloseError(err) {
 			conn.Close()
@@ -367,7 +393,9 @@ func noticeBroadcast(event int, data interface{}) {
 	noticeData := noticeData_T { event, data }
 
 	for conn, _ := range noticeConns {
+		noticeMutex.Lock()
 		err := conn.WriteJSON(noticeData)
+		noticeMutex.Unlock()
 		if err != nil {
 			if isWebsocketCloseError(err) {
 				conn.Close()

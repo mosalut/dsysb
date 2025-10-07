@@ -23,8 +23,8 @@ func initTargetValues() {
 		// mainnet
 		stdBlockNum = 2016
 		stdBlockBatchSeconds = 1209600 // 600 * 2016
-	//	difficult_1_target = [4]byte{ 0x1d, 0, 0xff, 0xff }
-		difficult_1_target = [4]byte{ 0x1f, 0, 0xff, 0xff }
+		difficult_1_target = [4]byte{ 0x1d, 0, 0xff, 0xff }
+	//	difficult_1_target = [4]byte{ 0x1f, 0, 0xff, 0xff }
 
 	} else {
 		// testnet

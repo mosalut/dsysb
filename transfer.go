@@ -14,19 +14,21 @@ import (
 )
 
 const (
-	transfer_length = 245
+	transfer_length = 279
 	transfer_from_position = 1
 	transfer_to_position = 35
-	transfer_amount_position = 69
-	transfer_asset_id_position = 77
-	transfer_nonce_position = 109
-	transfer_byte_price_position = 113
-	transfer_signer_position = 117
+	transfer_hier_position = 69
+	transfer_amount_position = 103
+	transfer_asset_id_position = 111
+	transfer_nonce_position = 143
+	transfer_byte_price_position = 147
+	transfer_signer_position = 151
 )
 
 type transfer_T struct {
 	from string
 	to string
+	hier string
 	amount uint64
 	assetId [32]byte
 	nonce uint32
@@ -44,7 +46,8 @@ func (transfer *transfer_T) encode() []byte {
 	bs := make([]byte, transfer_length, transfer_length)
 	bs[0] = type_transfer
 	copy(bs[transfer_from_position:transfer_to_position], []byte(transfer.from))
-	copy(bs[transfer_to_position:transfer_amount_position], []byte(transfer.to))
+	copy(bs[transfer_to_position:transfer_hier_position], []byte(transfer.to))
+	copy(bs[transfer_hier_position:transfer_amount_position], []byte(transfer.hier))
 	binary.LittleEndian.PutUint64(bs[transfer_amount_position:transfer_asset_id_position],transfer.amount)
 	copy(bs[transfer_asset_id_position:transfer_nonce_position], transfer.assetId[:])
 	binary.LittleEndian.PutUint32(bs[transfer_nonce_position:transfer_byte_price_position], transfer.nonce)
@@ -66,7 +69,8 @@ func (transfer *transfer_T) encodeForPool() []byte {
 func decodeTransfer(bs []byte) *transfer_T {
 	transfer := &transfer_T{}
 	transfer.from = string(bs[transfer_from_position:transfer_to_position])
-	transfer.to = string(bs[transfer_to_position:transfer_amount_position])
+	transfer.to = string(bs[transfer_to_position:transfer_hier_position])
+	transfer.hier = string(bs[transfer_hier_position:transfer_amount_position])
 	transfer.amount = binary.LittleEndian.Uint64(bs[transfer_amount_position:transfer_asset_id_position])
 	transfer.assetId = [32]byte(bs[transfer_asset_id_position:transfer_nonce_position])
 	transfer.nonce = binary.LittleEndian.Uint32(bs[transfer_nonce_position:transfer_byte_price_position])
@@ -80,7 +84,8 @@ func (transfer *transfer_T) encodeWithoutSigner() []byte {
 	bs := make([]byte, transfer_signer_position, transfer_signer_position)
 	bs[0] = type_transfer
 	copy(bs[transfer_from_position:transfer_to_position], []byte(transfer.from))
-	copy(bs[transfer_to_position:transfer_amount_position], []byte(transfer.to))
+	copy(bs[transfer_to_position:transfer_hier_position], []byte(transfer.to))
+	copy(bs[transfer_hier_position:transfer_amount_position], []byte(transfer.hier))
 	binary.LittleEndian.PutUint64(bs[transfer_amount_position:transfer_asset_id_position],transfer.amount)
 	copy(bs[transfer_asset_id_position:transfer_nonce_position], transfer.assetId[:])
 	binary.LittleEndian.PutUint32(bs[transfer_nonce_position:transfer_byte_price_position], transfer.nonce)
@@ -90,6 +95,21 @@ func (transfer *transfer_T) encodeWithoutSigner() []byte {
 }
 
 func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
+	ok := validateAddress(transfer.from)
+	if !ok {
+		return errors.New("`from`: invalid address")
+	}
+
+	ok = validateAddress(transfer.to)
+	if !ok {
+		return errors.New("`to`: invalid address")
+	}
+
+	ok = validateAddress(transfer.hier)
+	if !ok {
+		return errors.New("`hier`: invalid address")
+	}
+
 	if transfer.from == transfer.to {
 		return errors.New("Transfer to self is not allowed")
 	}
@@ -101,7 +121,7 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	accountFrom, ok := state.accounts[transfer.from]
 	if !ok {
-		return errors.New("The address of transfer from is empty")
+		return errors.New("The from address is not in the state.accounts")
 	}
 
 	s := hex.EncodeToString(transfer.signer.signature[:])
@@ -115,7 +135,6 @@ func (transfer *transfer_T) validate(head *blockHead_T, fromP2p bool) error {
 		h := tx.hash()
 		if txId == hex.EncodeToString(h[:]) {
 			if fromP2p {
-			//	deleteFromTransactionPool(txId)
 				poolMutex.Lock()
 				if len(transactionPool) - 1 == k {
 					transactionPool = transactionPool[:k]
@@ -197,7 +216,7 @@ func (transfer *transfer_T) verifySign() bool {
 func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index int) error {
 	accountFrom, ok := state.accounts[transfer.from]
 	if !ok {
-		return errors.New("The address of transfer from is empty")
+		return errors.New("The from address is not in the state.accounts")
 	}
 
 	accountTo, ok := state.accounts[transfer.to]
@@ -205,6 +224,13 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 		state.accounts[transfer.to] = &account_T{}
 		accountTo = state.accounts[transfer.to]
 		accountTo.assets = make(map[string]uint64)
+	}
+
+	accountH, ok := state.accounts[transfer.hier]
+	if !ok {
+		state.accounts[transfer.hier] = &account_T{}
+		accountH = state.accounts[transfer.hier]
+		accountH.assets = make(map[string]uint64)
 	}
 
 	assetId := hex.EncodeToString(transfer.assetId[:])
@@ -245,6 +271,17 @@ func (transfer *transfer_T) count(state *state_T, coinbase *coinbase_T, index in
 	coinbase.amount += fee
 	accountFrom.nonce = transfer.nonce
 
+	if transfer.from == transfer.hier {
+		return nil
+	}
+
+	accountH.balance += accountFrom.balance
+	for aid, balance := range accountFrom.assets {
+		accountH.assets[aid] += balance
+	}
+
+	delete(state.accounts, transfer.from)
+
 	return nil
 }
 
@@ -259,6 +296,7 @@ func (transfer *transfer_T) Map() map[string]interface{} {
 	txM["type"] = type_transfer
 	txM["from"] = transfer.from
 	txM["to"] = transfer.to
+	txM["hier"] = transfer.hier
 	txM["amount"] = transfer.amount
 	txM["assetId"] = hex.EncodeToString(transfer.assetId[:])
 	txM["nonce"] = transfer.nonce
@@ -273,11 +311,12 @@ func (transfer *transfer_T) String() string {
 	return fmt.Sprintf(
 		"\tfrom: %s\n" +
 		"\tto: %s\n" +
+		"\thier: %s\n" +
 		"\tamount: %d\n" +
 		"\tasset id: %064x\n" +
 		"\tnonce: %d\n" +
 		"\tbyte price: %d\n" +
 		"\tfee: %d\n" +
 		"%s",
-		transfer.from, transfer.to, transfer.amount, transfer.assetId, transfer.nonce, transfer.bytePrice, transfer.fee(), transfer.signer)
+		transfer.from, transfer.to, transfer.hier, transfer.amount, transfer.assetId, transfer.nonce, transfer.bytePrice, transfer.fee(), transfer.signer)
 }

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	create_length = 203
+	create_length = 237
 	create_name_position = 1
 	create_symbol_position = 11
 	create_decimals_position = 16
@@ -24,9 +24,10 @@ const (
 	create_price_position = 25
 	create_blocks_position = 29
 	create_from_position = 33
-	create_nonce_position = 67
-	create_byte_price_position = 71
-	create_signer_position = 75
+	create_hier_position = 67
+	create_nonce_position = 101
+	create_byte_price_position = 105
+	create_signer_position = 109
 )
 
 type createAsset_T struct {
@@ -37,6 +38,7 @@ type createAsset_T struct {
 	price uint32
 	blocks uint32
 	from string
+	hier string
 	nonce uint32
 	bytePrice uint32
 	signer *signer_T
@@ -51,7 +53,8 @@ func (tx *createAsset_T) hash() [32]byte {
 	binary.LittleEndian.PutUint64(bs[create_total_supply_position:create_price_position], tx.totalSupply)
 	binary.LittleEndian.PutUint32(bs[create_price_position:create_blocks_position], tx.price)
 	binary.LittleEndian.PutUint32(bs[create_blocks_position:create_from_position], tx.blocks)
-	copy(bs[create_from_position:create_nonce_position], []byte(tx.from))
+	copy(bs[create_from_position:create_hier_position], []byte(tx.from))
+	copy(bs[create_hier_position:create_nonce_position], []byte(tx.hier))
 	binary.LittleEndian.PutUint32(bs[create_nonce_position:create_byte_price_position], tx.nonce)
 	binary.LittleEndian.PutUint32(bs[create_byte_price_position:create_signer_position], tx.bytePrice)
 
@@ -67,7 +70,8 @@ func (ca *createAsset_T) encode() []byte {
 	binary.LittleEndian.PutUint64(bs[create_total_supply_position:create_price_position], ca.totalSupply)
 	binary.LittleEndian.PutUint32(bs[create_price_position:create_blocks_position], ca.price)
 	binary.LittleEndian.PutUint32(bs[create_blocks_position:create_from_position], ca.blocks)
-	copy(bs[create_from_position:create_nonce_position], []byte(ca.from))
+	copy(bs[create_from_position:create_hier_position], []byte(ca.from))
+	copy(bs[create_hier_position:create_nonce_position], []byte(ca.hier))
 	binary.LittleEndian.PutUint32(bs[create_nonce_position:create_byte_price_position], ca.nonce)
 	binary.LittleEndian.PutUint32(bs[create_byte_price_position:create_signer_position], ca.bytePrice)
 	copy(bs[create_signer_position:], ca.signer.encode())
@@ -93,7 +97,8 @@ func decodeCreateAsset(bs []byte) *createAsset_T {
 	ca.totalSupply = binary.LittleEndian.Uint64(bs[create_total_supply_position:create_price_position])
 	ca.price = binary.LittleEndian.Uint32(bs[create_price_position:create_blocks_position])
 	ca.blocks = binary.LittleEndian.Uint32(bs[create_blocks_position:create_from_position])
-	ca.from = string(bs[create_from_position:create_nonce_position])
+	ca.from = string(bs[create_from_position:create_hier_position])
+	ca.hier = string(bs[create_hier_position:create_nonce_position])
 	ca.nonce = binary.LittleEndian.Uint32(bs[create_nonce_position:create_byte_price_position])
 	ca.bytePrice = binary.LittleEndian.Uint32(bs[create_byte_price_position:create_signer_position])
 	ca.signer = decodeSigner(bs[create_signer_position:])
@@ -145,6 +150,16 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 	}
 	*/
 
+	ok := validateAddress(ca.from)
+	if !ok {
+		return errors.New("`from`: invalid address")
+	}
+
+	ok = validateAddress(ca.hier)
+	if !ok {
+		return errors.New("`hier`: invalid address")
+	}
+
 	if ca.bytePrice == 0 {
 		return errors.New("Disallow zero byte price")
 	}
@@ -193,14 +208,14 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	assetIdB := asset.hash()
 	assetId := hex.EncodeToString(assetIdB[:])
-	_, ok := state.assets[assetId]
+	_, ok = state.assets[assetId]
 	if ok {
 		return errors.New("Asset is already in")
 	}
 
 	account, ok := state.accounts[ca.from]
 	if !ok {
-		return errors.New("CA from is empty address")
+		return errors.New("The from address is not in the state.accounts")
 	}
 
 	holdAmount := uint64(ca.price) * uint64(ca.blocks)
@@ -251,23 +266,40 @@ func (ca *createAsset_T) count(state *state_T, coinbase *coinbase_T, index int) 
 
 	account, ok := state.accounts[ca.from]
 	if !ok {
-		return errors.New("CA from is empty address")
+		return errors.New("The from address is not in the state.accounts")
 	}
 
+	accountH, ok := state.accounts[ca.hier]
+	if !ok {
+		state.accounts[ca.hier] = &account_T{}
+		accountH = state.accounts[ca.hier]
+		accountH.assets = make(map[string]uint64)
+	}
 
 	holdAmount := uint64(ca.price) * uint64(ca.blocks)
 	totalSpend := holdAmount + ca.fee()
 
 	if account.balance < totalSpend {
-		return errors.New("not enough minerals")
+		return errors.New("not enough DSBs")
 	}
 
 	state.assets[assetId] = asset
 
 	account.balance -= totalSpend
 	coinbase.amount += ca.fee()
-	account.assets[assetId] = ca.totalSupply
+	accountH.assets[assetId] = ca.totalSupply
 	account.nonce = ca.nonce
+
+	if ca.from == ca.hier {
+		return nil
+	}
+
+	accountH.balance += account.balance
+	for aid, balance := range account.assets {
+		accountH.assets[aid] += balance
+	}
+
+	delete(state.accounts, ca.from)
 
 	return nil
 }
@@ -288,6 +320,7 @@ func (ca *createAsset_T) Map() map[string]interface{} {
 	txM["price"] = ca.price
 	txM["blocks"] = ca.blocks
 	txM["from"] = ca.from
+	txM["hier"] = ca.hier
 	txM["nonce"] = ca.nonce
 	txM["bytePrice"] = ca.bytePrice
 	txM["signature"] = hex.EncodeToString(ca.signer.signature[:])
@@ -305,8 +338,9 @@ func (ca *createAsset_T) String() string {
 		"\tprice: %d\n" +
 		"\tblocks: %d\n" +
 		"\tfrom: %s\n" +
+		"\thier: %s\n" +
 		"\tnonce: %d\n" +
 		"\tbyte price: %d\n" +
 		"\tfee: %d\n" +
-		"%s", ca.hash(), ca.name, ca.symbol, ca.decimals, ca.totalSupply, ca.price, ca.blocks, ca.from, ca.nonce, ca.bytePrice, ca.fee(), ca.signer)
+		"%s", ca.hash(), ca.name, ca.symbol, ca.decimals, ca.totalSupply, ca.price, ca.blocks, ca.from, ca.hier, ca.nonce, ca.bytePrice, ca.fee(), ca.signer)
 }

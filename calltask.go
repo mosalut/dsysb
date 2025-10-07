@@ -15,6 +15,7 @@ import (
 
 type callTask_T struct {
 	from string
+	hier string
 	taskId [32]byte
 	params []byte
 	nonce uint32
@@ -24,15 +25,16 @@ type callTask_T struct {
 
 func (tx *callTask_T) hash() [32]byte {
 	pLength := len(tx.params)
-	paramsEnd := 67 + pLength // 67 = 1 + 32 + 34
+	paramsEnd := 101 + pLength // 101 = 1 + 32 + 34 + 34
 	nonceEnd := paramsEnd + 4
 	bytePriceEnd := nonceEnd + 4
 	length := bytePriceEnd + 128
 	bs := make([]byte, length, length)
 	bs[0] = type_call
 	copy(bs[1:35], []byte(tx.from))
-	copy(bs[35:67], tx.taskId[:])
-	copy(bs[67:paramsEnd], tx.params)
+	copy(bs[35:69], []byte(tx.hier))
+	copy(bs[69:101], tx.taskId[:])
+	copy(bs[101:paramsEnd], tx.params)
 	binary.LittleEndian.PutUint32(bs[paramsEnd:nonceEnd], tx.nonce)
 	binary.LittleEndian.PutUint32(bs[nonceEnd:bytePriceEnd], tx.bytePrice)
 
@@ -41,15 +43,16 @@ func (tx *callTask_T) hash() [32]byte {
 
 func (tx *callTask_T) encode() []byte {
 	pLength := len(tx.params)
-	paramsEnd := 67 + pLength // 67 = 1 + 32 + 34
+	paramsEnd := 101 + pLength // 101 = 1 + 32 + 34 + 34
 	nonceEnd := paramsEnd + 4
 	bytePriceEnd := nonceEnd + 4
 	length := bytePriceEnd + 128
 	bs := make([]byte, length, length)
 	bs[0] = type_call
 	copy(bs[1:35], []byte(tx.from))
-	copy(bs[35:67], tx.taskId[:])
-	copy(bs[67:paramsEnd], tx.params)
+	copy(bs[35:69], []byte(tx.hier))
+	copy(bs[69:101], tx.taskId[:])
+	copy(bs[101:paramsEnd], tx.params)
 	binary.LittleEndian.PutUint32(bs[paramsEnd:nonceEnd], tx.nonce)
 	binary.LittleEndian.PutUint32(bs[nonceEnd:bytePriceEnd], tx.bytePrice)
 	copy(bs[bytePriceEnd:], tx.signer.encode())
@@ -58,8 +61,8 @@ func (tx *callTask_T) encode() []byte {
 }
 
 func (tx *callTask_T) encodeForPool() []byte {
-	// 203 = 1 + 32 + 34 + 4 + 4 + 128
-	length0 := 203 + len(tx.params)
+	// 237 = 1 + 32 + 34 + 34 + 4 + 4 + 128
+	length0 := 237 + len(tx.params)
 	length := length0 + 2
 	bs := make([]byte, length, length)
 	binary.LittleEndian.PutUint16(bs[:2], uint16(length0))
@@ -71,9 +74,10 @@ func (tx *callTask_T) encodeForPool() []byte {
 func decodeCallTask(bs []byte) *callTask_T {
 	tx := &callTask_T{}
 	tx.from = string(bs[1:35])
-	tx.taskId = [32]byte(bs[35:67])
+	tx.hier = string(bs[35:69])
+	tx.taskId = [32]byte(bs[69:101])
 	paramsEnd := len(bs) - 136 // 136 = 4 + 4 + 128
-	tx.params = bs[67:paramsEnd]
+	tx.params = bs[101:paramsEnd]
 	nonceEnd := paramsEnd + 4
 	tx.nonce = binary.LittleEndian.Uint32(bs[paramsEnd:nonceEnd])
 	bytePriceEnd := nonceEnd + 4
@@ -84,7 +88,7 @@ func decodeCallTask(bs []byte) *callTask_T {
 }
 
 func (tx *callTask_T) length() int {
-	return len(tx.params) + 203
+	return len(tx.params) + 237
 }
 
 func (tx *callTask_T) fee() uint64 {
@@ -102,6 +106,10 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	if !validateAddress(ct.from) {
 		return errors.New("`from`: invalid address")
+	}
+
+	if !validateAddress(ct.hier) {
+		return errors.New("`hier`: invalid address")
 	}
 
 	s := hex.EncodeToString(ct.signer.signature[:])
@@ -204,6 +212,13 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 		return errors.New("CT address is empty address")
 	}
 
+	accountH, ok := state.accounts[ct.hier]
+	if !ok {
+		state.accounts[ct.hier] = &account_T{}
+		accountH = state.accounts[ct.hier]
+		accountH.assets = make(map[string]uint64)
+	}
+
 	if account.balance < ct.fee() {
 		return errors.New("Not enough minerals")
 	}
@@ -216,6 +231,15 @@ func (ct *callTask_T) count(state *state_T, coinbase *coinbase_T, index int) err
 	if err != nil {
 		print(log_warning, "taskId:", hex.EncodeToString(ct.taskId[:]), "caller:", ct.from, "excute error:", err)
 		return errors.New("taskId:" + hex.EncodeToString(ct.taskId[:]) + "caller:" + ct.from + " excute error:" + err.Error())
+	}
+
+	if ct.from == ct.hier {
+		return nil
+	}
+
+	accountH.balance += account.balance
+	for aid, balance := range account.assets {
+		accountH.assets[aid] += balance
 	}
 
 	return nil
@@ -231,6 +255,7 @@ func (tx *callTask_T) Map() map[string]interface{} {
 	txM["txid"] = hex.EncodeToString(h[:])
 	txM["type"] = type_call
 	txM["from"] = tx.from
+	txM["hier"] = tx.hier
 	txM["taskId"] = hex.EncodeToString(tx.taskId[:])
 	txM["params"] = hex.EncodeToString(tx.params[:])
 	txM["nonce"] = tx.nonce
@@ -246,10 +271,11 @@ func (tx *callTask_T) String() string {
 		"\ttxid:\t%064x\n" +
 			"\ttype:\tcall\n" +
 			"\tfrom: %s\n" +
+			"\thier: %s\n" +
 			"\ttask id: %x\n" +
 			"\tparams: %v\n" +
 			"\tnonce: %d\n" +
 			"\tbyte price: %d\n" +
 			"\tfee: %d\n" +
-			"%s", tx.hash(), tx.from, tx.taskId, tx.params, tx.nonce, tx.bytePrice, tx.fee(), tx.signer)
+			"%s", tx.hash(), tx.from, tx.hier, tx.taskId, tx.params, tx.nonce, tx.bytePrice, tx.fee(), tx.signer)
 }
