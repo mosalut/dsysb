@@ -127,11 +127,15 @@ func (et *extension_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("`hier`: invalid address")
 	}
 
-	/*
-	if et.blocks < 10000 {
-		return errors.New("`blocks` must >= 10000")
+	state, err := getState()
+	if err != nil {
+		return err
 	}
-	*/
+
+	taskId, ok := state.tasks.isLockedAddress(et.from)
+	if ok {
+		return errors.New("`from`: is locked by task: " + taskId)
+	}
 
 	if et.bytePrice == 0 {
 		return errors.New("Disallow zero byte price")
@@ -160,14 +164,10 @@ func (et *extension_T) validate(head *blockHead_T, fromP2p bool) error {
 	}
 
 	var nonce uint32
-	state, err := getState()
-	if err != nil {
-		return err
-	}
 
 	account, ok := state.accounts[et.from]
 	if !ok {
-		return errors.New("DT address is empty address")
+		return errors.New("DT address is not in the state.accounts")
 	}
 
 	id := hex.EncodeToString(et.nId[:])

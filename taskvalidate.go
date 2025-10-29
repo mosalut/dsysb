@@ -681,15 +681,12 @@ func (task *task_T) validate() error {
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-		//	p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-		//	ip += 2
 			flag := task.instructs[ip]
 			ip++
 			if p2 < ip {
 				return errors.New(fmt.Sprintf("jump error at ip:%d, invalid index", aip))
 			}
 			p2sOfCompare = append(p2sOfCompare, uint16(p2))
-		//	err = task.opCheckInnerA(aip, p0, p1, p2, p3)
 			err = task.opCheckInnerA(aip, p0, p1, flag)
 		case ins_gt:
 			aip = ip + 7
@@ -702,18 +699,15 @@ func (task *task_T) validate() error {
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-		//	p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-		//	ip += 2
 			flag := task.instructs[ip]
 			ip++
 			if p2 < ip {
 				return errors.New(fmt.Sprintf("jump error at ip:%d, invalid index", aip))
 			}
 			p2sOfCompare = append(p2sOfCompare, uint16(p2))
-		//	err = task.opCheckInnerB(aip, p0, p1, p2, p3)
 			err = task.opCheckInnerB(aip, p0, p1, flag)
 		case ins_lt:
-			aip = ip + 8
+			aip = ip + 7
 			if instructsLength < aip {
 				return errors.New(fmt.Sprintf("Instruction error at ip:%d", aip))
 			}
@@ -723,18 +717,15 @@ func (task *task_T) validate() error {
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-		//	p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-		//	ip += 2
 			flag := task.instructs[ip]
 			ip++
 			if p2 < ip {
 				return errors.New(fmt.Sprintf("jump error at ip:%d, invalid index", aip))
 			}
 			p2sOfCompare = append(p2sOfCompare, uint16(p2))
-		//	err = task.opCheckInnerB(aip, p0, p1, p2, p3)
 			err = task.opCheckInnerB(aip, p0, p1, flag)
 		case ins_gteq:
-			aip = ip + 8
+			aip = ip + 7
 			if instructsLength < aip {
 				return errors.New(fmt.Sprintf("Instruction error at ip:%d", aip))
 			}
@@ -744,18 +735,15 @@ func (task *task_T) validate() error {
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-		//	p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-		//	ip += 2
 			flag := task.instructs[ip]
 			ip++
 			if p2 < ip {
 				return errors.New(fmt.Sprintf("jump error at ip:%d, invalid index", aip))
 			}
 			p2sOfCompare = append(p2sOfCompare, uint16(p2))
-		//	err = task.opCheckInnerB(aip, p0, p1, p2, p3)
 			err = task.opCheckInnerB(aip, p0, p1, flag)
 		case ins_lteq:
-			aip = ip + 8
+			aip = ip + 7
 			if instructsLength < aip {
 				return errors.New(fmt.Sprintf("Instruction error at ip:%d", aip))
 			}
@@ -765,15 +753,12 @@ func (task *task_T) validate() error {
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 2
-		//	p3 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
-		//	ip += 2
 			flag := task.instructs[ip]
 			ip++
 			if p2 < ip {
 				return errors.New(fmt.Sprintf("jump error at ip:%d, invalid index", aip))
 			}
 			p2sOfCompare = append(p2sOfCompare, uint16(p2))
-		//	err = task.opCheckInnerB(aip, p0, p1, p2, p3)
 			err = task.opCheckInnerB(aip, p0, p1, flag)
 		case ins_eq_bytes:
 			aip = ip + 8
@@ -959,6 +944,35 @@ func (task *task_T) validateCall(state *state_T, ct *callTask_T) error {
 
 		var err error
 		switch task.instructs[ipx] {
+		case ins_movsb: ip += 6
+		case ins_mov8: fallthrough
+		case ins_mov16: fallthrough
+		case ins_mov32: fallthrough
+		case ins_mov64: ip += 4
+		case ins_add8: fallthrough
+		case ins_add16: fallthrough
+		case ins_add32: fallthrough
+		case ins_add64: fallthrough
+		case ins_add8u: fallthrough
+		case ins_add16u: fallthrough
+		case ins_add32u: fallthrough
+		case ins_add64u: fallthrough
+		case ins_sub8: fallthrough
+		case ins_sub16: fallthrough
+		case ins_sub32: fallthrough
+		case ins_sub64: fallthrough
+		case ins_sub8u: fallthrough
+		case ins_sub16u: fallthrough
+		case ins_sub32u: fallthrough
+		case ins_sub64u: fallthrough
+		case ins_mul8: fallthrough
+		case ins_mul16: fallthrough
+		case ins_mul32: fallthrough
+		case ins_mul64: fallthrough
+		case ins_mul8u: fallthrough
+		case ins_mul16u: fallthrough
+		case ins_mul32u: fallthrough
+		case ins_mul64u: ip += 6
 		case ins_quo8:
 			ip += 2
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
@@ -982,7 +996,7 @@ func (task *task_T) validateCall(state *state_T, ct *callTask_T) error {
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 6
 
-			d := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 2]))
+			d := int32(binary.LittleEndian.Uint32(task.vData[p1:p1 + 4]))
 			if d == 0 {
 				err = errors.New("quo32 p1, divisor is zero")
 			}
@@ -991,7 +1005,7 @@ func (task *task_T) validateCall(state *state_T, ct *callTask_T) error {
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 6
 
-			d := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 2]))
+			d := int64(binary.LittleEndian.Uint64(task.vData[p1:p1 + 8]))
 			if d == 0 {
 				err = errors.New("quo64 p1, divisor is zero")
 			}
@@ -1018,7 +1032,7 @@ func (task *task_T) validateCall(state *state_T, ct *callTask_T) error {
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 6
 
-			d := binary.LittleEndian.Uint32(task.vData[p1:p1 + 2])
+			d := binary.LittleEndian.Uint32(task.vData[p1:p1 + 4])
 			if d == 0 {
 				err = errors.New("quo32u p1, divisor is zero")
 			}
@@ -1027,10 +1041,34 @@ func (task *task_T) validateCall(state *state_T, ct *callTask_T) error {
 			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2]))
 			ip += 6
 
-			d := binary.LittleEndian.Uint64(task.vData[p1:p1 + 2])
+			d := binary.LittleEndian.Uint64(task.vData[p1:p1 + 8])
 			if d == 0 {
 				err = errors.New("quo64u p1, divisor is zero")
 			}
+		case ins_inc8: fallthrough
+		case ins_inc16: fallthrough
+		case ins_inc32: fallthrough
+		case ins_inc64: fallthrough
+		case ins_inc8u: fallthrough
+		case ins_inc16u: fallthrough
+		case ins_inc32u: fallthrough
+		case ins_inc64u: fallthrough
+		case ins_dec8: fallthrough
+		case ins_dec16: fallthrough
+		case ins_dec32: fallthrough
+		case ins_dec64: fallthrough
+		case ins_dec8u: fallthrough
+		case ins_dec16u: fallthrough
+		case ins_dec32u: fallthrough
+		case ins_dec64u: ip += 2
+		case ins_write_uint8: fallthrough
+		case ins_write_uint16: fallthrough
+		case ins_write_uint32: fallthrough
+		case ins_write_uint64: fallthrough
+		case ins_read_uint8: fallthrough
+		case ins_read_uint16: fallthrough
+		case ins_read_uint32: fallthrough
+		case ins_read_uint64: ip += 2
 		case ins_eq:
 			ip += 6
 			flag := task.instructs[ip]
@@ -1071,6 +1109,7 @@ func (task *task_T) validateCall(state *state_T, ct *callTask_T) error {
 			if flag > 7 {
 				err = errors.New("Wrong type of task op lteq")
 			}
+		case ins_eq_bytes: ip += 8
 		case ins_height:
 			_, err = getIndex()
 		case ins_transfer_dsb_from_caller:

@@ -189,6 +189,16 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("`hier`: invalid address")
 	}
 
+	state, err := getState()
+	if err != nil {
+		return err
+	}
+
+	tId, ok := state.tasks.isLockedAddress(dt.from)
+	if ok {
+		return errors.New("`from`: is locked by task: " + tId)
+	}
+
 	s := hex.EncodeToString(dt.signer.signature[:])
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")
@@ -204,7 +214,7 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 		dt.blocks,
 	}
 
-	err := task.validate()
+	err = task.validate()
 	if err != nil {
 		return err
 	}
@@ -229,11 +239,6 @@ func (dt *deployTask_T) validate(head *blockHead_T, fromP2p bool) error {
 
 			return errors.New("Replay attack: txid: " + txId)
 		}
-	}
-
-	state, err := getState()
-	if err != nil {
-		return err
 	}
 
 	taskIdB := task.hash()
@@ -287,7 +292,7 @@ func (dt *deployTask_T) verifySign() bool {
 
 func (dt *deployTask_T) count(state *state_T, coinbase *coinbase_T, index int) error {
 	task := &task_T {
-		dt.hier,
+		dt.from,
 		dt.instructs,
 		dt.vData,
 		dt.nonce,

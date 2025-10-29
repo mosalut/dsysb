@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime/debug"
 	"math/rand"
 	"sync"
 	"crypto/sha256"
@@ -82,9 +83,17 @@ func deleteReceivedTransportId(postId string) {
 }
 
 func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body []byte) {
+	defer func() {
+		panicErr := recover()
+		if panicErr != nil {
+			fmt.Println("Bad p2p net data")
+			print(log_error, panicErr)
+			debug.PrintStack()
+		}
+	}()
 	fmt.Println("hash key:", key)
 
-	if len(body) < 28 {
+	if len(body) < 29 {
 		return
 	}
 

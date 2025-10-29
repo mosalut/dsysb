@@ -150,14 +150,24 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 	}
 	*/
 
-	ok := validateAddress(ca.from)
-	if !ok {
+
+	if !validateAddress(ca.from) {
 		return errors.New("`from`: invalid address")
 	}
 
-	ok = validateAddress(ca.hier)
-	if !ok {
+
+	if !validateAddress(ca.hier) {
 		return errors.New("`hier`: invalid address")
+	}
+
+	state, err := getState()
+	if err != nil {
+		return err
+	}
+
+	taskId, ok := state.tasks.isLockedAddress(ca.from)
+	if ok {
+		return errors.New("`from`: is locked by task: " + taskId)
 	}
 
 	if ca.bytePrice == 0 {
@@ -189,11 +199,6 @@ func (ca *createAsset_T) validate(head *blockHead_T, fromP2p bool) error {
 
 			return errors.New("Replay attack: txid: " + txId)
 		}
-	}
-
-	state, err := getState()
-	if err != nil {
-		return err
 	}
 
 	asset := &asset_T {

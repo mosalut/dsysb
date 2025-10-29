@@ -195,65 +195,65 @@ func (task *task_T) excute(state *state_T, address string, fee uint64, params []
 			ip += 2
 			err = task.mov64(p0, p1)
 		case ins_add8:
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			err = task.add8(p0, p1, p2)
 		case ins_add16:
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			err = task.add16(p0, p1, p2)
 		case ins_add32:
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			err = task.add32(p0, p1, p2)
 		case ins_add64:
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			err = task.add64(p0, p1, p2)
 		case ins_add8u:
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			err = task.add8u(p0, p1, p2)
 		case ins_add16u:
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			err = task.add16u(p0, p1, p2)
 		case ins_add32u:
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
 			err = task.add32u(p0, p1, p2)
 		case ins_add64u:
-			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p0 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
-			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // adder
+			p1 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // append
 			ip += 2
 			p2 := int(binary.LittleEndian.Uint16(task.instructs[ip:ip + 2])) // sum
 			ip += 2
@@ -727,6 +727,17 @@ func decodeTaskPool(bs []byte) taskPool_T {
 	}
 
 	return pool
+}
+
+func (pool taskPool_T) isLockedAddress(address string) (string, bool) {
+	for _, task := range pool {
+		if task.address == address {
+			h := task.hash()
+			return hex.EncodeToString(h[:]), true
+		}
+	}
+
+	return "", false
 }
 
 func tasksHandler(w http.ResponseWriter, req *http.Request) {

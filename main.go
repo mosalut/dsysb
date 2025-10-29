@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"strconv"
+	"encoding/hex"
+	"fmt"
 	"log"
 
 	"github.com/mosalut/q2p"
@@ -37,9 +39,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	showLogo()
-	log.Println(*cmdFlag)
-	log.Println(stdBlockNum)
+	displayLogo()
 
 	if cmdFlag.remoteHost != "" {
 		seedAddrs[cmdFlag.remoteHost] = false
@@ -48,8 +48,18 @@ func main() {
 			seedAddrs[v] = false
 		}
 
+		fmt.Println("2222:")
+		for k, v := range seedAddrs {
+			fmt.Println(k, v)
+		}
 		conf.remoteHosts = nil
+		fmt.Println("3333:")
+		for k, v := range seedAddrs {
+			fmt.Println(k, v)
+		}
 	}
+
+	displayInitInfo()
 
 	if cmdFlag.logFile {
 		err := openLogFile(strconv.Itoa(cmdFlag.port))
@@ -75,6 +85,24 @@ func main() {
 	}
 
 	runHttpServer(cmdFlag.httpPort)
+}
+
+func displayInitInfo() {
+	fmt.Println(*cmdFlag)
+	fmt.Println("-------------------------------------------")
+	fmt.Printf("Network ID:%d\n", cmdFlag.networkID)
+	fmt.Println("P2P host on:", cmdFlag.ip + ":" + fmt.Sprintf("%d", cmdFlag.port))
+	fmt.Println("The max of p2p connect:", cmdFlag.cn)
+	fmt.Println("The http port:", cmdFlag.httpPort)
+	fmt.Println("Block period batch:", stdBlockNum)
+	fmt.Println("Remote hosts:")
+	for k, v := range seedAddrs {
+		fmt.Println("\t", k, v)
+	}
+	fmt.Println("The block period batch:", stdBlockNum)
+	fmt.Println("The block period batch SECs:", stdBlockBatchSeconds)
+	fmt.Println("The current period batch difficult:", hex.EncodeToString(difficult_1_target[:]))
+	fmt.Println("-------------------------------------------")
 }
 
 func readFlags(cmdFlag *cmdFlag_T) {

@@ -112,6 +112,16 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 		return errors.New("`hier`: invalid address")
 	}
 
+	state, err := getState()
+	if err != nil {
+		return err
+	}
+
+	taskId, ok := state.tasks.isLockedAddress(ct.from)
+	if ok {
+		return errors.New("`from`: is locked by task: " + taskId)
+	}
+
 	s := hex.EncodeToString(ct.signer.signature[:])
 	if s == "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" {
 		return errors.New("Unsigned transaction")
@@ -139,12 +149,6 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 		}
 	}
 
-	state, err := getState()
-	if err != nil {
-		return err
-	}
-
-	var ok bool
 	for _, task := range state.tasks {
 		h := task.hash()
 		if hex.EncodeToString(h[:]) == hex.EncodeToString(ct.taskId[:]) {
@@ -166,7 +170,7 @@ func (ct *callTask_T) validate(head *blockHead_T, fromP2p bool) error {
 
 	account, ok := state.accounts[ct.from]
 	if !ok {
-		return errors.New("CT address is empty address")
+		return errors.New("CT address is not in the state.accounts")
 	}
 	nonce := account.nonce
 

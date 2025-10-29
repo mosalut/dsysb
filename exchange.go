@@ -91,18 +91,16 @@ func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 	}
 
 	for _, transfer := range ex {
-		ok := validateAddress(transfer.from)
-		if !ok {
+		if !validateAddress(transfer.from) {
 			return errors.New("`from`: invalid address")
 		}
 
-		ok = validateAddress(transfer.to)
-		if !ok {
+		if !validateAddress(transfer.to) {
 			return errors.New("`to`: invalid address")
 		}
 
-		ok = validateAddress(transfer.hier)
-		if !ok {
+
+		if !validateAddress(transfer.hier) {
 			return errors.New("`hier`: invalid address")
 		}
 
@@ -112,7 +110,12 @@ func (ex *exchange_T) validate(head *blockHead_T, fromP2p bool) error {
 
 		accountFrom, ok := state.accounts[transfer.from]
 		if !ok {
-			return errors.New("Transfer from is empty address")
+			return errors.New("Transfer from address is not in the state.accounts")
+		}
+
+		taskId, ok := state.tasks.isLockedAddress(transfer.from)
+		if ok {
+			return errors.New("`from`: is locked by task: " + taskId)
 		}
 
 		s := hex.EncodeToString(transfer.signer.signature[:])

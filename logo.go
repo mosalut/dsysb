@@ -12,6 +12,6 @@ const logo = `
 ██████╔╝███████║   ██║   ███████║██████╔╝
 ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝╚═════╝`
 
-func showLogo() {
+func displayLogo() {
 	fmt.Println(logo)
 }
