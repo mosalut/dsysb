@@ -379,6 +379,8 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		fmt.Println("Get message:", string(body[29:]))
 		broadcastForward(body)
 	}
+
+	seedAddrs[rAddr.String()] = true
 }
 
 func transportFailed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, syns []uint32) {

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	bh_length = 152
+	bh_length = 156
 	bh_hash_position = 36
 	bh_state_root_position = 72
 	bh_transaction_root_position = 104
@@ -31,7 +31,7 @@ const (
 //	[104:136] - transaction root
 // 	[136:140] - bits
 // 	[140:148] - timestamp
-// 	[148:152] - nonce
+// 	[148:156] - nonce
 type blockHead_T struct {
 	prevHash [36]byte
 	hash [36]byte
@@ -39,7 +39,7 @@ type blockHead_T struct {
 	transactionRoot [32]byte
 	bits [4]byte
 	timestamp [8]byte
-	nonce [4]byte
+	nonce uint64
 }
 
 func (head blockHead_T) String() string {
@@ -50,7 +50,7 @@ func (head blockHead_T) String() string {
 	"\n\ttransaction root:" + hex.EncodeToString(head.transactionRoot[:]) +
 	"\n\tbits:" + hex.EncodeToString(head.bits[:]) +
 	"\n\ttimestamp:" + fmt.Sprintf("%d", binary.LittleEndian.Uint64(head.timestamp[:])) +
-	"\n\tnonce:" + hex.EncodeToString(head.nonce[:])
+	"\n\tnonce:" + fmt.Sprintf("%d\n", head.nonce)
 }
 
 func (head *blockHead_T) encode () []byte {
@@ -61,7 +61,7 @@ func (head *blockHead_T) encode () []byte {
 	copy(bs[bh_transaction_root_position:bh_bits_position], head.transactionRoot[:])
 	copy(bs[bh_bits_position:bh_time_position], head.bits[:])
 	copy(bs[bh_time_position:bh_nonce_position], head.timestamp[:])
-	copy(bs[bh_nonce_position:], head.nonce[:])
+	binary.LittleEndian.PutUint64(bs[bh_nonce_position:], head.nonce)
 
 	return bs
 }
@@ -74,18 +74,18 @@ func decodeBlockHead(bs []byte) *blockHead_T {
 		[32]byte(bs[bh_transaction_root_position:bh_bits_position]),
 		[4]byte(bs[bh_bits_position:bh_time_position]),
 		[8]byte(bs[bh_time_position:bh_nonce_position]),
-		[4]byte(bs[bh_nonce_position:]),
+		binary.LittleEndian.Uint64(bs[bh_nonce_position:]),
 	}
 }
 
 func (head *blockHead_T) hashing() [32]byte {
-	bs := make([]byte, 116, 116)
+	bs := make([]byte, 120, 120)
 	copy(bs[:36], head.prevHash[:])
 	copy(bs[36:68], head.stateRoot[:])
 	copy(bs[68:100], head.transactionRoot[:])
 	copy(bs[100:104], head.bits[:])
 	copy(bs[104:112], head.timestamp[:])
-	copy(bs[112:], head.nonce[:])
+	binary.LittleEndian.PutUint64(bs[112:], head.nonce)
 
 	return sha256.Sum256(bs)
 }

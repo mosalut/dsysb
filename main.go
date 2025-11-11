@@ -47,16 +47,6 @@ func main() {
 		for _, v := range conf.remoteHosts {
 			seedAddrs[v] = false
 		}
-
-		fmt.Println("2222:")
-		for k, v := range seedAddrs {
-			fmt.Println(k, v)
-		}
-		conf.remoteHosts = nil
-		fmt.Println("3333:")
-		for k, v := range seedAddrs {
-			fmt.Println(k, v)
-		}
 	}
 
 	displayInitInfo()

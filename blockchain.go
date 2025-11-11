@@ -17,7 +17,7 @@ import (
 )
 
 // 1d00ffff mainnet
-const firstBlock = "00000000000000000000000000000000000000000000000000000000000000000000000000000000c0ea80a4783bc448d96e9a3c7bde1c5868bbe50ebf21d0c5431facb501000000d35dcb68f6cbb9f34f4a0fa5f82ace01314c46817a0b5b143918873f33c23c5dec8259ef6bd2e150449e209cc37987c9641a937f9f466580b71be4c7909289861d00ffff3b2e136900000000548c4ffa2f00004435565659364157636f584c394251597a577458567858634c5671446b626343646d00743ba40b000000000000004435565659364157636f584c394251597a577458567858634c5671446b626343646d00743ba40b0000000000000000003000000000000000c9000000"
+const firstBlock = "00000000000000000000000000000000000000000000000000000000000000000000000000000000ba92bac6b89f318294ec697020b6fecc2ef53883b554649a7e13872101000000d35dcb68f6cbb9f34f4a0fa5f82ace01314c46817a0b5b143918873f33c23c5dec8259ef6bd2e150449e209cc37987c9641a937f9f466580b71be4c7909289861d00ffff9a5c13690000000008dfa3cf000000002f00004435565659364157636f584c394251597a577458567858634c5671446b626343646d00743ba40b000000000000004435565659364157636f584c394251597a577458567858634c5671446b626343646d00743ba40b0000000000000000003000000000000000cd000000"
 
 
 // 1f00ffff devnet
@@ -260,7 +260,7 @@ func blockchain2Handler(w http.ResponseWriter, req *http.Request) {
 			TransactionRoot string `json:"transactionRoot"`
 			Bits string `json:"bits"`
 			Timestamp int64 `json:"timestamp"`
-			Nonce uint32 `json:"nonce"`
+			Nonce uint64 `json:"nonce"`
 		} `json:"head"`
 		Transactions []string `json:"transactions"`
 	}, 0, number)
@@ -280,7 +280,7 @@ func blockchain2Handler(w http.ResponseWriter, req *http.Request) {
 				TransactionRoot string `json:"transactionRoot"`
 				Bits string `json:"bits"`
 				Timestamp int64 `json:"timestamp"`
-				Nonce uint32 `json:"nonce"`
+				Nonce uint64 `json:"nonce"`
 			} `json:"head"`
 			Transactions []string `json:"transactions"`
 		} {}
@@ -292,7 +292,7 @@ func blockchain2Handler(w http.ResponseWriter, req *http.Request) {
 			TransactionRoot string `json:"transactionRoot"`
 			Bits string `json:"bits"`
 			Timestamp int64 `json:"timestamp"`
-			Nonce uint32 `json:"nonce"`
+			Nonce uint64 `json:"nonce"`
 		} {}
 
 		block2.Head.PrevHash = hex.EncodeToString(block.head.prevHash[:])
@@ -301,7 +301,7 @@ func blockchain2Handler(w http.ResponseWriter, req *http.Request) {
 		block2.Head.TransactionRoot = hex.EncodeToString(block.head.transactionRoot[:])
 		block2.Head.Bits = hex.EncodeToString(block.head.bits[:])
 		block2.Head.Timestamp = int64(binary.LittleEndian.Uint64(block.head.timestamp[:]))
-		block2.Head.Nonce = uint32(binary.LittleEndian.Uint32(block.head.nonce[:]))
+		block2.Head.Nonce = block.head.nonce
 
 		tLength := len(block.body.transactions)
 		block2.Transactions = make([]string, tLength, tLength)
