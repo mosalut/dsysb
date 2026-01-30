@@ -223,9 +223,10 @@ func (block *block_T)Append() error {
 		return err
 	}
 
+	bs := block.encode()
 	batch := &leveldb.Batch{}
 	batch.Put([]byte("index"), block.head.hash[32:])
-	batch.Put(block.head.hash[32:], block.encode())
+	batch.Put(block.head.hash[32:], bs)
 
 	err = chainDB.Write(batch, nil)
 	if err != nil {
@@ -234,7 +235,8 @@ func (block *block_T)Append() error {
 
 	noticeAppendBroadcast(block)
 
-	socketData := socketData_T { WS_MINED_BLOCK, nil }
+	// explorer not nil
+	socketData := socketData_T { WS_MINED_BLOCK, bs }
 	for c, _ := range minerConns {
 		minerMutex.Lock()
 		err = c.WriteJSON(socketData)
