@@ -66,6 +66,8 @@ func main() {
 	peer.Successed = transportSuccessed
 	peer.Failed = transportFailed
 
+	go pingRemotes()
+
 	initDB()
 	initIndex()
 
