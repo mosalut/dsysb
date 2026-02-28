@@ -58,6 +58,7 @@ func broadcastHandler(w http.ResponseWriter, req *http.Request) {
 	values := req.URL.Query()
 	message := values.Get("message")
 
+	fmt.Println("xxx:", message)
 	broadcast(p2p_debug, []byte(message))
 
 	writeResult(w, responseResult_T{true, "ok", nil})
