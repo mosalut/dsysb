@@ -26,12 +26,35 @@ const (
 	p2p_get_block_hashes_event
 	p2p_sync_post_event
 	p2p_sync_receive_event
+	p2p_ping
 	p2p_debug
 )
 
 var peer *q2p.Peer_T
 var receivedTransportIds = make(map[string]string)
 var receivedTransportIdsMutex = &sync.RWMutex{}
+
+var latestPing = make(map[string]int64)
+
+func disconnectUDP(rAddr string) {
+	delete (latestPing, rAddr)
+	delete (peer.RemoteSeeds, rAddr)
+	fmt.Println("disconnected:", rAddr)
+}
+
+func pingRemotes() {
+	for {
+		time.Sleep(3 * time.Second)
+		for k, v := range latestPing {
+			t := time.Now().Unix()
+			fmt.Println(k, t, v, t - v)
+			if t - v > 20 {
+				disconnectUDP(k)
+			}
+		}
+		broadcast(p2p_ping, []byte("ping"))
+	}
+}
 
 func lifeCycle(peer *q2p.Peer_T, rAddr *net.UDPAddr, cycle int) {
 	switch cycle {
@@ -91,6 +114,13 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			debug.PrintStack()
 		}
 	}()
+
+	_, ok := peer.RemoteSeeds[rAddr.String()]
+	if !ok {
+		fmt.Println("A message from an expired address:", rAddr.String())
+		return
+	}
+
 	fmt.Println("hash key:", key)
 
 	if len(body) < 29 {
@@ -101,7 +131,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 //	print(log_debug, "postId:", postId)
 
 	receivedTransportIdsMutex.Lock()
-	_, ok := receivedTransportIds[postId]
+	_, ok = receivedTransportIds[postId]
 	receivedTransportIdsMutex.Unlock()
 	if ok {
 		fmt.Println("return:", postId)
@@ -375,6 +405,9 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			print(log_error, err)
 			return
 		}
+	case p2p_ping:
+		latestPing[rAddr.String()] = time.Now().Unix()
+		fmt.Println("Get ping:", string(body[29:]), rAddr)
 	case p2p_debug:
 		fmt.Println("Get message:", string(body[29:]))
 		broadcastForward(body)
@@ -384,7 +417,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 }
 
 func transportFailed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, syns []uint32) {
-	fmt.Println("transport failed", key, syns)
+	fmt.Println("transport failed:", key, syns, rAddr)
 }
 
 func peerHandler(w http.ResponseWriter, req *http.Request) {
@@ -412,30 +445,26 @@ func broadcastForward(bs []byte) {
 	postId := fmt.Sprintf("%056x", bs[:28])
 	print(log_debug, "postId:", postId)
 
-	for k, _ := range peer.RemoteSeeds {
-		rAddr, err := net.ResolveUDPAddr("udp", k)
-		if err != nil {
-			print(log_error, err)
-			continue
-		}
-
-		_, err = peer.Transport(rAddr, bs)
-		if err != nil {
-			print(log_error, err)
-			continue
-		}
-	}
+	_broadcast(bs)
 }
 
-func broadcast(event uint8, data []byte) {
+func makePostId(event uint8, data []byte) []byte {
 	hash := makePostHash(data)
 	bs := append(hash[:], byte(event))
 	bs = append(bs, data...)
 	postId := fmt.Sprintf("%056x", hash[:])
 	print(log_debug, "postId:", postId)
-
-	fmt.Println("remote seeds:", peer.RemoteSeeds)
 	addReceivedTransportId(postId, peer.Conn.LocalAddr().String())
+	return bs
+}
+
+func broadcast(event uint8, data []byte) {
+	bs := makePostId(event, data)
+	_broadcast(bs)
+}
+
+func _broadcast(bs []byte) {
+	fmt.Println("remote seeds:", peer.RemoteSeeds)
 	for k, _ := range peer.RemoteSeeds {
 		rAddr, err := net.ResolveUDPAddr("udp", k)
 		if err != nil {
