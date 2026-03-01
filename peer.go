@@ -47,12 +47,13 @@ func pingRemotes() {
 		time.Sleep(3 * time.Second)
 		for k, v := range latestPing {
 			t := time.Now().Unix()
-			fmt.Println(k, t, v, t - v)
+		//	fmt.Println(k, t, v, t - v)
 			if t - v > 20 {
 				disconnectUDP(k)
 			}
 		}
 		broadcast(p2p_ping, []byte("ping"))
+	//	fmt.Println("is sync:", blockchainSync.synchronizing)
 	}
 }
 
@@ -118,10 +119,10 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 	_, ok := peer.RemoteSeeds[rAddr.String()]
 	if !ok {
 		fmt.Println("A message from an expired address:", rAddr.String())
-		return
+		peer.RemoteSeeds[rAddr.String()] = false
 	}
 
-	fmt.Println("hash key:", key)
+//	fmt.Println("hash key:", key)
 
 	if len(body) < 29 {
 		return
@@ -228,6 +229,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 					print(log_error, err)
 					return
 				}
+				fmt.Println("ddddddddddddddddddddddddddddddddd")
 				blockchainSync.over()
 				broadcastForward(body)
 			}
@@ -396,6 +398,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		if blockchainSync.targetIndex == blockchainSync.blockIndex {
 			blockchainSync.over()
 			print(log_info, "Block synchronization finished")
+			fmt.Printf("%+v", blockchainSync)
 			return
 		}
 
@@ -407,7 +410,7 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 		}
 	case p2p_ping:
 		latestPing[rAddr.String()] = time.Now().Unix()
-		fmt.Println("Get ping:", string(body[29:]), rAddr)
+	//	fmt.Println("Get ping:", string(body[29:]), rAddr)
 	case p2p_debug:
 		fmt.Println("Get message:", string(body[29:]))
 		broadcastForward(body)
@@ -442,6 +445,7 @@ func peerHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func broadcastForward(bs []byte) {
+	fmt.Println("in broadcastForward:", bs[28])
 	postId := fmt.Sprintf("%056x", bs[:28])
 	print(log_debug, "postId:", postId)
 
@@ -453,18 +457,22 @@ func makePostId(event uint8, data []byte) []byte {
 	bs := append(hash[:], byte(event))
 	bs = append(bs, data...)
 	postId := fmt.Sprintf("%056x", hash[:])
-	print(log_debug, "postId:", postId)
+//	print(log_debug, "postId:", postId)
 	addReceivedTransportId(postId, peer.Conn.LocalAddr().String())
 	return bs
 }
 
 func broadcast(event uint8, data []byte) {
+	fmt.Println("in broadcast:", event)
+	if event != p2p_ping {
+		fmt.Println("remote seeds:", peer.RemoteSeeds)
+		fmt.Println("event x:", event)
+	}
 	bs := makePostId(event, data)
 	_broadcast(bs)
 }
 
 func _broadcast(bs []byte) {
-	fmt.Println("remote seeds:", peer.RemoteSeeds)
 	for k, _ := range peer.RemoteSeeds {
 		rAddr, err := net.ResolveUDPAddr("udp", k)
 		if err != nil {
