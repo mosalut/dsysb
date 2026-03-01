@@ -445,6 +445,7 @@ func peerHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func broadcastForward(bs []byte) {
+	fmt.Println("remote seeds:", peer.RemoteSeeds)
 	fmt.Println("in broadcastForward:", bs[28])
 	postId := fmt.Sprintf("%056x", bs[:28])
 	print(log_debug, "postId:", postId)
