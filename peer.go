@@ -402,6 +402,12 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			blockchainSync.over()
 			print(log_info, "Block synchronization finished")
 			fmt.Printf("%+v", blockchainSync)
+
+			print(log_info, "Check and request the remote block height again...")
+			err := transport(rAddr, p2p_request_height_event, nil)
+			if err != nil {
+				print(log_info, err)
+			}
 			return
 		}
 
