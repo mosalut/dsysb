@@ -32,9 +32,10 @@ const (
 
 var peer *q2p.Peer_T
 var receivedTransportIds = make(map[string]string)
-var receivedTransportIdsMutex = &sync.RWMutex{}
+var receivedTransportIdsMutex sync.RWMutex
 
 var latestPing = make(map[string]int64)
+var latestPingMutex sync.RWMutex
 
 func disconnectUDP(rAddr string) {
 	delete (latestPing, rAddr)
@@ -45,6 +46,8 @@ func disconnectUDP(rAddr string) {
 func pingRemotes() {
 	for {
 		time.Sleep(3 * time.Second)
+
+		latestPingMutex.RLock()
 		for k, v := range latestPing {
 			t := time.Now().Unix()
 		//	fmt.Println(k, t, v, t - v)
@@ -52,6 +55,7 @@ func pingRemotes() {
 				disconnectUDP(k)
 			}
 		}
+		latestPingMutex.RUnlock()
 		broadcast(p2p_ping, []byte("ping"))
 	//	fmt.Println("is sync:", blockchainSync.synchronizing)
 	}
@@ -408,7 +412,9 @@ func transportSuccessed(peer *q2p.Peer_T, rAddr *net.UDPAddr, key string, body [
 			return
 		}
 	case p2p_ping:
+		latestPingMutex.Lock()
 		latestPing[rAddr.String()] = time.Now().Unix()
+		latestPingMutex.Unlock()
 	//	fmt.Println("Get ping:", string(body[29:]), rAddr)
 	case p2p_debug:
 		fmt.Println("Get message:", string(body[29:]))
