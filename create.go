@@ -313,6 +313,7 @@ func (ca *createAsset_T) getBytePrice() uint32 {
 	return ca.bytePrice
 }
 
+/*
 func (ca *createAsset_T) Map() map[string]interface{} {
 	txM := make(map[string]interface{})
 	h := ca.hash()
@@ -332,6 +333,7 @@ func (ca *createAsset_T) Map() map[string]interface{} {
 
 	return txM
 }
+*/
 
 func (ca *createAsset_T) String() string {
 	return fmt.Sprintf(

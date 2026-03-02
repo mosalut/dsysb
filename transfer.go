@@ -293,6 +293,7 @@ func (transfer *transfer_T) getBytePrice() uint32 {
 	return transfer.bytePrice
 }
 
+/*
 func (transfer *transfer_T) Map() map[string]interface{} {
 	txM := make(map[string]interface{})
 	h := transfer.hash()
@@ -310,6 +311,7 @@ func (transfer *transfer_T) Map() map[string]interface{} {
 
 	return txM
 }
+*/
 
 func (transfer *transfer_T) String() string {
 	return fmt.Sprintf(

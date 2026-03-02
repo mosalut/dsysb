@@ -284,6 +284,7 @@ func (et *extension_T) count(state *state_T, coinbase *coinbase_T, index int) er
 	return nil
 }
 
+/*
 func (et *extension_T) Map() map[string]interface{} {
 	txM := make(map[string]interface{})
 	h := et.hash()
@@ -300,6 +301,7 @@ func (et *extension_T) Map() map[string]interface{} {
 
 	return txM
 }
+*/
 
 func (et *extension_T) getBytePrice() uint32 {
 	return et.bytePrice

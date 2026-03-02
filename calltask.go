@@ -253,6 +253,7 @@ func (tx *callTask_T) getBytePrice() uint32 {
 	return tx.bytePrice
 }
 
+/*
 func (tx *callTask_T) Map() map[string]interface{} {
 	txM := make(map[string]interface{})
 	h := tx.hash()
@@ -269,6 +270,7 @@ func (tx *callTask_T) Map() map[string]interface{} {
 
 	return txM
 }
+*/
 
 func (tx *callTask_T) String() string {
 	return fmt.Sprintf(

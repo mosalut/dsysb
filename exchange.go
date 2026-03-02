@@ -272,6 +272,7 @@ func (ex *exchange_T) getBytePrice() uint32 {
 	return (ex[0].bytePrice + ex[1].bytePrice) / 2
 }
 
+/*
 func (ex *exchange_T) Map() map[string]interface{} {
 	txM := make(map[string]interface{})
 
@@ -301,6 +302,7 @@ func (ex *exchange_T) Map() map[string]interface{} {
 
 	return txM
 }
+*/
 
 func (ex *exchange_T) String() string {
 	return fmt.Sprintf(

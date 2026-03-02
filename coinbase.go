@@ -5,7 +5,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
+//	"encoding/hex"
 	"errors"
 	"fmt"
 )
@@ -122,6 +122,7 @@ func (coinbase *coinbase_T) getBytePrice() uint32 {
 	return 0
 }
 
+/*
 func (tx *coinbase_T) Map() map[string]interface{} {
 	txM := make(map[string]interface{})
 	h := tx.hash()
@@ -133,6 +134,7 @@ func (tx *coinbase_T) Map() map[string]interface{} {
 
 	return txM
 }
+*/
 
 func (tx *coinbase_T) String() string {
 	return fmt.Sprintf(

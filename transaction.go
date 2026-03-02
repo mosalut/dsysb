@@ -27,7 +27,7 @@ type transaction_I interface {
 	count(*state_T, *coinbase_T, int) error
 	encodeForPool() []byte
 	getBytePrice() uint32
-	Map() map[string]interface{}
+//	Map() map[string]interface{}
 	String() string
 }
 
